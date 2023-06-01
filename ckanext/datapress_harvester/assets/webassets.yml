@@ -1,0 +1,14 @@
+# datapress_harvester-js:
+#   filter: rjsmin
+#   output: ckanext-datapress_harvester/%(version)s-datapress_harvester.js
+#   contents:
+#     - js/datapress_harvester.js
+#   extra:
+#     preload:
+#       - base/main
+
+# datapress_harvester-css:
+#   filter: cssrewrite
+#   output: ckanext-datapress_harvester/%(version)s-datapress_harvester.css
+#   contents:
+#     - css/datapress_harvester.css
