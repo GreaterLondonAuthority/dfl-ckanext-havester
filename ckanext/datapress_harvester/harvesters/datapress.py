@@ -1,13 +1,16 @@
 from __future__ import absolute_import
 import requests
 from requests.exceptions import HTTPError, RequestException
+import dateutil.parser
 
 import re
 import urllib
+from datetime import datetime
 
 from ckan import model
 from ckan.logic import ValidationError, NotFound, get_action, validators
 from ckan.lib.helpers import json
+import ckan.lib.search as search
 from ckan.plugins import toolkit
 
 from ckanext.harvest.model import HarvestObject
@@ -518,14 +521,6 @@ class DataPressHarvester(HarvesterBase):
                         package_dict["id"],
                     ),
                 },
-                {
-                    "key": "upstream_metadata_modified",
-                    "value": strip_time_zone(package_dict["metadata_modified"]),
-                },
-                {
-                    "key": "upstream_metadata_created",
-                    "value": strip_time_zone(package_dict["metadata_created"]),
-                },
             ]
 
             for resource in package_dict.get("resources", []):
@@ -545,6 +540,8 @@ class DataPressHarvester(HarvesterBase):
                 package_dict, harvest_object, package_dict_form="package_show"
             )
 
+            self._patch_timestamps(model, package_dict)
+
             return result
         except ValidationError as e:
             self._save_object_error(
@@ -556,6 +553,38 @@ class DataPressHarvester(HarvesterBase):
         except Exception as e:
             self._save_object_error("%s" % e, harvest_object, "Import")
 
+    def _patch_timestamps(self, model, package_dict):
+        """
+        CKAN's dataset create/update method sets the metadata_created and
+        metadata_modified fields to the current time, with no option to override
+        them. We want to inherit the upstream fields, so patch them after the
+        fact.
+
+        Uses the SQLAlchemy interface directly to update the metadata fields,
+        and then re-indexes the affected package in SOLR.
+        """
+        metadata_created = dateutil.parser.parse(package_dict["metadata_created"])
+        metadata_modified = dateutil.parser.parse(package_dict["metadata_modified"])
+
+        # CKAN assumes tzinfo is None (so that printed timestamps don't have
+        # timezone specifiers on them) so strip timezone information.
+        metadata_created = metadata_created.replace(tzinfo=None)
+        metadata_modified = metadata_modified.replace(tzinfo=None)
+
+        (
+            model.Session.query(model.Package)
+            .filter_by(id=package_dict["id"])
+            .update(
+                {
+                    "metadata_created": metadata_created,
+                    "metadata_modified": metadata_modified,
+                }
+            )
+        )
+        model.Session.flush()
+
+        # reindex this package in SOLR to pick up the changes
+        search.rebuild(package_dict["id"])
 
 class ContentFetchError(Exception):
     pass
@@ -567,10 +596,3 @@ class ContentNotFoundError(ContentFetchError):
 
 class RemoteResourceError(Exception):
     pass
-
-
-# This makes me uncomfortable, but CKAN doesn't accept time zone specifiers so
-# we have to strip them. If we ever need to harvest a source in another time
-# zone we'll have to update CKAN to handle them.
-def strip_time_zone(iso_timestamp):
-    return re.sub(r"Z|([+-]\d\d:?(\d\d)?)$", "", iso_timestamp)
