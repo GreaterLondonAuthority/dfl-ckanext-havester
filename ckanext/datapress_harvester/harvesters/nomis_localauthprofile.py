@@ -11,64 +11,17 @@ from ckan.lib.helpers import json
 import ckan.plugins.toolkit as tk
 
 from ckanext.harvest.harvesters import HarvesterBase
-from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
+from ckanext.harvest.model import HarvestObject
 
+from ckanext.datapress_harvester.util import (
+    NOMIS_BOROUGHS,
+    NOMIS_LAP_SELECT_URL,
+    NOMIS_LMP_BASE,
+    sanitise,
+)
 
 log = logging.getLogger(__name__)
 md5 = hashlib.md5()
-
-NOMIS_LAP_SELECT_URL = "https://www.nomisweb.co.uk/reports/lmp/la/contents.aspx"
-NOMIS_LMP_BASE = "https://www.nomisweb.co.uk/reports/lmp/la/{nomis_code}/report.aspx"
-
-NOMIS_BOROUGHS = [
-    "Barking and Dagenham",
-    "Barnet",
-    "Bexley",
-    "Brent",
-    "Bromley",
-    "Camden",
-    "City of London",
-    "Croydon",
-    "Ealing",
-    "Enfield",
-    "Haringey",
-    "Harrow",
-    "Havering",
-    "Hillingdon",
-    "Hounslow",
-    "Greenwich",
-    "Hackney",
-    "Hammersmith and Fulham",
-    "Islington",
-    "Kensington and Chelsea",
-    "Kingston-upon-Thames",
-    "Lambeth",
-    "Lewisham",
-    "Merton",
-    "Newham",
-    "Redbridge",
-    "Richmond upon Thames",
-    "Southwark",
-    "Sutton",
-    "Tower Hamlets",
-    "Waltham Forest",
-    "Wandsworth",
-    "Westminster",
-]
-
-
-def _sanitise(s):
-    """
-    Returns a sanitised version of string s:
-     - Removes all non-alphanumeric character (except space, underscore and dash)
-     - Replaces duplicate spaces with one space
-     - Replaces remaining spaces with dashes
-     - Lower-cases everything
-    """
-    without_non_alpha = re.sub("[^0-9a-zA-Z _-]+", "", s)
-    no_duplicate_spaces = re.sub("\s{2,}", " ", without_non_alpha)
-    no_spaces = no_duplicate_spaces.replace(" ", "-")
-    return no_spaces.lower()
 
 
 def _generate_resource(dataset, url_key, name):
@@ -104,8 +57,6 @@ def _dataset_to_pkgdict(dataset):
 # Helper functions for getting and setting values in package["extras"].
 # package["extras"] is a list of dictionaries of the form:
 # [ {"key": <key>, "value": <value>}, {"key": <key>, "value": <value>}, ...]
-
-
 def _get_package_extra_val(extras, key):
     """
     Return a value from package extras, given the key.
@@ -252,7 +203,6 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
 
         # Most topics have more than one data table, but for now we're only interested in the first one.
         # Get the contents of the table and hash it to store in the db, to compare when the harvester is run next
-        # TODO try-catch around this
         try:
             table_content = topic_start.find_next("tbody").text
         except AttributeError as e:
@@ -265,8 +215,8 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
         content_hash = md5.hexdigest()
 
         name = f"{borough_name} {topic['name']}"
-        package_id = f"nomis_{_sanitise(name)}"
-        resource_id = f"{package_id}_{_sanitise(topic['location'])}"
+        package_id = f"nomis_{sanitise(name)}"
+        resource_id = f"{package_id}_{sanitise(topic['location'])}"
         return {
             "package_id": package_id,
             "resource_id": resource_id,
