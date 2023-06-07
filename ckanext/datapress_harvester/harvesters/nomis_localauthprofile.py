@@ -13,11 +13,48 @@ import ckan.plugins.toolkit as tk
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
 
-import ckanext.datapress_harvester.lib as lib
-
 
 log = logging.getLogger(__name__)
 md5 = hashlib.md5()
+
+NOMIS_LAP_SELECT_URL = "https://www.nomisweb.co.uk/reports/lmp/la/contents.aspx"
+NOMIS_LMP_BASE = "https://www.nomisweb.co.uk/reports/lmp/la/{nomis_code}/report.aspx"
+
+NOMIS_BOROUGHS = [
+    "Barking and Dagenham",
+    "Barnet",
+    "Bexley",
+    "Brent",
+    "Bromley",
+    "Camden",
+    "City of London",
+    "Croydon",
+    "Ealing",
+    "Enfield",
+    "Haringey",
+    "Harrow",
+    "Havering",
+    "Hillingdon",
+    "Hounslow",
+    "Greenwich",
+    "Hackney",
+    "Hammersmith and Fulham",
+    "Islington",
+    "Kensington and Chelsea",
+    "Kingston-upon-Thames",
+    "Lambeth",
+    "Lewisham",
+    "Merton",
+    "Newham",
+    "Redbridge",
+    "Richmond upon Thames",
+    "Southwark",
+    "Sutton",
+    "Tower Hamlets",
+    "Waltham Forest",
+    "Wandsworth",
+    "Westminster",
+]
 
 
 def _sanitise(s):
@@ -110,7 +147,7 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
 
         # "boroughs" is the only valid config option
         # Check that it is a list with at least one element,
-        # and check that each element is one of the lib.NOMIS_BOROUGHS
+        # and check that each element is one of the NOMIS_BOROUGHS
         try:
             source_config_obj = json.loads(source_config)
             if "boroughs" in source_config_obj:
@@ -122,7 +159,7 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
 
                 invalid_boroughs = list(
                     filter(
-                        lambda b: b not in lib.NOMIS_BOROUGHS,
+                        lambda b: b not in NOMIS_BOROUGHS,
                         source_config_obj["boroughs"],
                     )
                 )
@@ -151,14 +188,14 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
         For each of the boroughs in the Select box on the nomis local authority profile page which matches
         one of the required_boroughs
         """
-        page = BeautifulSoup(requests.get(lib.NOMIS_LAP_SELECT_URL).text)
+        page = BeautifulSoup(requests.get(NOMIS_LAP_SELECT_URL).text)
         try:
             nomis_local_authorities = page.find("select").findChildren("option")
         except AttributeError as e:
             nomis_local_authorities = []
 
         if len(nomis_local_authorities) == 0:
-            msg = f"Did not find borough select box on page: {lib.NOMIS_LAP_SELECT_URL}"
+            msg = f"Did not find borough select box on page: {NOMIS_LAP_SELECT_URL}"
             self._save_gather_error(msg, harvest_job)
             return {}
 
@@ -235,7 +272,7 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
             "resource_id": resource_id,
             "name": name,
             "description": f"Data about {topic['name'].lower()} in {borough_name}, provided by nomis",
-            "sectionlink": lib.NOMIS_LMP_BASE.format(nomis_code=borough_id)
+            "sectionlink": NOMIS_LMP_BASE.format(nomis_code=borough_id)
             + topic["location"],
             "querylink": "https://www.nomisweb.co.uk" + querylink["href"],
             "license_id": "uk-ogl",
@@ -246,7 +283,7 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
         self._set_config(harvest_job.source.config)
         log.info("Getting borough ids")
 
-        required_boroughs = self.config.get("boroughs", None) or lib.NOMIS_BOROUGHS
+        required_boroughs = self.config.get("boroughs", None) or NOMIS_BOROUGHS
         scraped_boroughs = self._get_borough_ids(required_boroughs, harvest_job)
         if len(scraped_boroughs) != len(required_boroughs):
             self._save_gather_error(
@@ -257,7 +294,7 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
         datasets = []
         for name, code in scraped_boroughs.items():
             log.info(f"Extracting datasets for {name}")
-            borough_url = lib.NOMIS_LMP_BASE.format(nomis_code=code)
+            borough_url = NOMIS_LMP_BASE.format(nomis_code=code)
             borough_page = BeautifulSoup(requests.get(borough_url).text)
             topics = self._extract_topics(borough_page, borough_url, harvest_job)
             datasets += [
