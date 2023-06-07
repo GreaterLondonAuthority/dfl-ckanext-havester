@@ -302,6 +302,10 @@ class DataPressHarvester(HarvesterBase):
                 format = resource["format"]
                 resource["url"] = f"{base}/{dataset}/{id}/{file}.{format}"
 
+        # We remove the "state" key so that the current state (ie active/deleted) is
+        # used instead of the state in the source. This is to prevent deleted datasets
+        # being marked as active.
+        del package_dict["state"]
         return package_dict
 
     def import_stage(self, harvest_object):
