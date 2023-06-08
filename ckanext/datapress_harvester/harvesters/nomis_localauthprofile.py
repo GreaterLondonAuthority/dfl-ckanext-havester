@@ -1,5 +1,4 @@
 import logging
-import re
 import requests
 import hashlib
 import datetime
@@ -21,7 +20,6 @@ from ckanext.datapress_harvester.util import (
 )
 
 log = logging.getLogger(__name__)
-md5 = hashlib.md5()
 
 
 def _generate_resource(dataset, url_key, name):
@@ -139,7 +137,14 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
         For each of the boroughs in the Select box on the nomis local authority profile page which matches
         one of the required_boroughs
         """
-        page = BeautifulSoup(requests.get(NOMIS_LAP_SELECT_URL).text)
+        try:
+            page = BeautifulSoup(requests.get(NOMIS_LAP_SELECT_URL).text)
+        except requests.exceptions.ConnectionError as e:
+            self._save_gather_error(
+                f"Connection error when getting borough IDs: {NOMIS_LAP_SELECT_URL}",
+                harvest_job,
+            )
+            return {}
         try:
             nomis_local_authorities = page.find("select").findChildren("option")
         except AttributeError as e:
@@ -204,13 +209,15 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
         # Most topics have more than one data table, but for now we're only interested in the first one.
         # Get the contents of the table and hash it to store in the db, to compare when the harvester is run next
         try:
-            table_content = topic_start.find_next("tbody").text
+            table_content = topic_start.find_next("tbody").text.strip()
         except AttributeError as e:
             self._save_gather_error(
                 f"Did not find data table for {borough_name}: {topic['name']}",
                 harvest_job,
             )
             return None
+
+        md5 = hashlib.md5()
         content_hash = md5.update(table_content.encode())
         content_hash = md5.hexdigest()
 
@@ -245,7 +252,13 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
         for name, code in scraped_boroughs.items():
             log.info(f"Extracting datasets for {name}")
             borough_url = NOMIS_LMP_BASE.format(nomis_code=code)
-            borough_page = BeautifulSoup(requests.get(borough_url).text)
+            try:
+                borough_page = BeautifulSoup(requests.get(borough_url).content)
+            except requests.exceptions.ConnectionError as e:
+                self._save_gather_error(
+                    f"Connection error when getting page for {name}", harvest_job
+                )
+                continue
             topics = self._extract_topics(borough_page, borough_url, harvest_job)
             datasets += [
                 self._extract_dataset(borough_page, name, code, t, harvest_job)

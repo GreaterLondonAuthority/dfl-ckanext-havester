@@ -1,3 +1,5 @@
+import re
+
 NOMIS_LAP_SELECT_URL = "https://www.nomisweb.co.uk/reports/lmp/la/contents.aspx"
 NOMIS_LMP_BASE = "https://www.nomisweb.co.uk/reports/lmp/la/{nomis_code}/report.aspx"
 
