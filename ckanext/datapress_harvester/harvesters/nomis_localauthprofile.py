@@ -240,7 +240,7 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
         self._set_config(harvest_job.source.config)
         log.info("Getting borough ids")
 
-        required_boroughs = self.config.get("boroughs", None) or NOMIS_BOROUGHS
+        required_boroughs = self.config.get("boroughs", NOMIS_BOROUGHS)
         scraped_boroughs = self._get_borough_ids(required_boroughs, harvest_job)
         if len(scraped_boroughs) != len(required_boroughs):
             self._save_gather_error(
