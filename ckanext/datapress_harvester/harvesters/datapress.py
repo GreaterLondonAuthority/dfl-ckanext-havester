@@ -148,6 +148,32 @@ class DataPressHarvester(HarvesterBase):
         """
         return package_dict
 
+    def _harvester_search_dict(self, source_id, page, limit):
+        return {
+            "fq": '+harvest_source_id:"{0}"'.format(source_id),
+            "fl": "id",
+            "rows": limit,
+            "start": (page - 1) * limit,
+        }
+
+    def _get_harvested_dataset_ids(self, harvest_source_id):
+        context = {"model": model, "session": model.Session}
+        page = 1
+        limit = 1000
+        query_result = toolkit.get_action("package_search")(
+            context,
+            self._harvester_search_dict(harvest_source_id, page, limit),
+        )
+        log.info(f"{query_result['count']} datasets harvested previously")
+        datasets = query_result["results"]
+        while len(datasets) < query_result["count"]:
+            page += 1
+            datasets += toolkit.get_action("package_search")(
+                context, self._harvester_search_dict(harvest_source_id, page, limit)
+            )["results"]
+
+        return {d["id"] for d in datasets}
+
     def gather_stage(self, harvest_job):
         log.debug("In DataPressHarvester gather_stage (%s)", harvest_job.source.url)
         toolkit.requires_ckan_version(min_version="2.0")
@@ -186,11 +212,28 @@ class DataPressHarvester(HarvesterBase):
             )
             return []
 
+        # Create a Set of dataset ids fetched from upstream,
+        # for comparing with those that have been harvested previously and are already in the database
+        fetched_ids = {p["id"] for p in pkg_dicts}
+
+        # Get the Set of ids of datasets in the database that belong to this harvest source
+        existing_dataset_ids = self._get_harvested_dataset_ids(harvest_job.source.id)
+
+        # Datasets that are present locally but not upstream need to be deleted locally
+        to_be_deleted = existing_dataset_ids - fetched_ids
+        log.info(f"{len(to_be_deleted)} datasets need to be deleted")
+
         # Create harvest objects for each dataset
         try:
             package_ids = set()
             object_ids = []
+
+            # Don't harvest anything marked as private
+            # (Not sure why private datasets are being returned by the datapress public API)
             for pkg_dict in pkg_dicts:
+                if pkg_dict["private"]:
+                    continue
+
                 if pkg_dict["id"] in package_ids:
                     log.info(
                         "Discarding duplicate dataset %s - probably due "
@@ -201,11 +244,27 @@ class DataPressHarvester(HarvesterBase):
                     continue
                 package_ids.add(pkg_dict["id"])
 
+                # Add a field signifying that this is a create/update to a dataset, rather than one that needs deleting.
+                # Not currently used for anything.
+                pkg_dict["action"] = "upsert"
+
                 log.debug(
                     "Creating HarvestObject for %s %s", pkg_dict["name"], pkg_dict["id"]
                 )
                 obj = HarvestObject(
                     guid=pkg_dict["id"], job=harvest_job, content=json.dumps(pkg_dict)
+                )
+                obj.save()
+                object_ids.append(obj.id)
+
+            # Create jobs to purge the datasets that no longer exist upstream.
+            # Needs to be 'purge' instead of 'delete' so that the dataset can be re-harvested
+            # if it gets un-deleted upstream.
+            for i in to_be_deleted:
+                # the dataset_purge function in the import_stage only needs the dataset ID to be able to purge the dataset.
+                pkg_dict = {"id": i, "action": "delete"}
+                obj = HarvestObject(
+                    guid=i, job=harvest_job, content=json.dumps(pkg_dict)
                 )
                 obj.save()
                 object_ids.append(obj.id)
@@ -347,6 +406,14 @@ class DataPressHarvester(HarvesterBase):
 
         try:
             package_dict = json.loads(harvest_object.content)
+
+            # Delete the dataset if its "action" is "delete"
+            if package_dict["action"] == "delete":
+                log.info(f"Deleting dataset with ID: {package_dict['id']}")
+                result = toolkit.get_action("dataset_purge")(
+                    base_context.copy(), package_dict
+                )
+                return True
 
             try:
                 # Check whether a package already exists that we need to transfer the extras from:
