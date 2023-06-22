@@ -17,6 +17,8 @@ from ckanext.datapress_harvester.util import (
     NOMIS_LAP_SELECT_URL,
     NOMIS_LMP_BASE,
     sanitise,
+    get_package_extra_val,
+    upsert_package_extra,
 )
 
 log = logging.getLogger(__name__)
@@ -50,35 +52,6 @@ def _dataset_to_pkgdict(dataset):
         ],
         "metadata_modified": datetime.datetime.now().isoformat(),
     }
-
-
-# Helper functions for getting and setting values in package["extras"].
-# package["extras"] is a list of dictionaries of the form:
-# [ {"key": <key>, "value": <value>}, {"key": <key>, "value": <value>}, ...]
-def _get_package_extra_val(extras, key):
-    """
-    Return a value from package extras, given the key.
-    Return None if the key does not exist.
-    """
-    for extra in extras:
-        if extra["key"] == key:
-            return extra["value"]
-    return None
-
-
-def _upsert_package_extra(extras, key, val):
-    """
-    Update the value for <key> in package['extras'] if it exists.
-    Insert it if not.
-    Returns the updated package['extras'].
-    """
-    for extra in extras:
-        if extra["key"] == key:
-            extra["value"] = val
-            return extras
-
-    extras.append({"key": key, "value": val})
-    return extras
 
 
 class NomisLocalAuthorityProfileScraper(HarvesterBase):
@@ -306,7 +279,7 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
             existing_dataset = tk.get_action("package_show")(
                 base_context.copy(), {"id": scraped_dataset["package_id"]}
             )
-            existing_hash = _get_package_extra_val(
+            existing_hash = get_package_extra_val(
                 existing_dataset["extras"], "content_hash"
             )
             if existing_hash == scraped_dataset["content_hash"]:
@@ -346,11 +319,11 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
                 package_dict["extras"] = []
 
             # Add an empty data quality field to extras if it's not already there
-            if _get_package_extra_val(package_dict["extras"], "data_quality") is None:
+            if get_package_extra_val(package_dict["extras"], "data_quality") is None:
                 package_dict["extras"].append({"key": "data_quality", "value": ""})
 
             # Add the content hash or update the value if one existed
-            _upsert_package_extra(
+            upsert_package_extra(
                 package_dict["extras"], "content_hash", scraped_dataset["content_hash"]
             )
 

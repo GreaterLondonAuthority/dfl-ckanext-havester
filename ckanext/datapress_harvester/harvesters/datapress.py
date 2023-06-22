@@ -2,6 +2,7 @@ from __future__ import absolute_import
 import requests
 from requests.exceptions import HTTPError, RequestException
 
+import os
 import re
 import urllib
 
@@ -12,6 +13,8 @@ from ckan.plugins import toolkit
 
 from ckanext.harvest.model import HarvestObject
 from ckanext.harvest.harvesters import HarvesterBase
+
+from ckanext.datapress_harvester.util import remove_extras, upsert_package_extra
 
 import logging
 
@@ -224,6 +227,13 @@ class DataPressHarvester(HarvesterBase):
         # gather stage
         return True
 
+    def _resource_format_from_url(self, url):
+        try:
+            p = urllib.parse.urlparse(url).path
+            return os.path.splitext(p)[1][1:]
+        except Exception as e:
+            return "data"
+
     def _datapress_to_ckan(self, package_dict, harvest_object):
         """
         Shims to transform DataPress packages into a format CKAN understands.
@@ -302,6 +312,11 @@ class DataPressHarvester(HarvesterBase):
                 format = resource["format"]
                 resource["url"] = f"{base}/{dataset}/{id}/{file}.{format}"
 
+            if "format" not in resource or not resource["format"]:
+                resource["format"] = self._resource_format_from_url(resource["url"])
+
+            log.info(f"Resource url: {resource['url']}, format: {resource['format']}")
+
         # We remove the "state" key so that the current state (ie active/deleted) is
         # used instead of the state in the source. This is to prevent deleted datasets
         # being marked as active.
@@ -332,6 +347,29 @@ class DataPressHarvester(HarvesterBase):
 
         try:
             package_dict = json.loads(harvest_object.content)
+
+            try:
+                # Check whether a package already exists that we need to transfer the extras from:
+                existing_package = toolkit.get_action("package_show")(
+                    base_context.copy(),
+                    {"id": package_dict["id"], "use_default_schema": True},
+                )
+
+                # These extras keys *should* be updated on every run of the harvester
+                remove_from_extras = [
+                    "upstream_metadata_created",
+                    "upstream_metadata_modified",
+                    "upstream_url",
+                    "harvest_object_id",
+                    "harvest_source_id",
+                    "harvest_source_title",
+                ]
+                extras_to_transfer = remove_extras(
+                    existing_package["extras"], remove_from_extras
+                )
+            except Exception as e:
+                # If the package doesn't exist, there aren't any extras to transfer
+                extras_to_transfer = {}
 
             package_dict = self._datapress_to_ckan(package_dict, harvest_object)
 
@@ -476,8 +514,10 @@ class DataPressHarvester(HarvesterBase):
                     ]
                 )
 
-            # Set default extras if needed
-            default_extras = {"data_quality": ""}
+            if "extras" not in package_dict:
+                package_dict["extras"] = []
+
+            default_extras = {}
             default_extras.update(self.config.get("default_extras", {}))
 
             def get_extra(key, package_dict):
@@ -487,8 +527,6 @@ class DataPressHarvester(HarvesterBase):
 
             if default_extras:
                 override_extras = self.config.get("override_extras", False)
-                if "extras" not in package_dict:
-                    package_dict["extras"] = []
                 for key, value in default_extras.items():
                     existing_extra = get_extra(key, package_dict)
                     if existing_extra and not override_extras:
@@ -508,8 +546,12 @@ class DataPressHarvester(HarvesterBase):
 
                     package_dict["extras"].append({"key": key, "value": value})
 
-            if "extras" not in package_dict:
-                package_dict["extras"] = []
+            # Add any existing extras here so they override any default extras
+            # specified in the harvest source. E.g. if data_quality is set as a default_extra
+            # we want to override that with whatever the current value is.
+            for e in extras_to_transfer:
+                upsert_package_extra(package_dict["extras"], e["key"], e["value"])
+
             package_dict["extras"] += [
                 {
                     "key": "upstream_url",
