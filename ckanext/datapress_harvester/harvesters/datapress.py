@@ -289,7 +289,7 @@ class DataPressHarvester(HarvesterBase):
     def _resource_format_from_url(self, url):
         try:
             p = urllib.parse.urlparse(url).path
-            return os.path.splitext(p)[1][1:]
+            return os.path.splitext(p)[1][1:] or "data"
         except Exception as e:
             return "data"
 
@@ -373,8 +373,6 @@ class DataPressHarvester(HarvesterBase):
 
             if "format" not in resource or not resource["format"]:
                 resource["format"] = self._resource_format_from_url(resource["url"])
-
-            log.info(f"Resource url: {resource['url']}, format: {resource['format']}")
 
         # We remove the "state" key so that the current state (ie active/deleted) is
         # used instead of the state in the source. This is to prevent deleted datasets
