@@ -38,6 +38,7 @@ def _generate_resource(dataset, url_key, name):
 
 def _dataset_to_pkgdict(dataset):
     """Convert a scraped dataset to a CKAN package_dict"""
+    modified = datetime.datetime.now().isoformat()
     return {
         "id": dataset["package_id"],
         "name": dataset["name"],
@@ -48,7 +49,9 @@ def _dataset_to_pkgdict(dataset):
             _generate_resource(dataset, "sectionlink", "nomis data tables"),
             _generate_resource(dataset, "querylink", "query the nomis data"),
         ],
-        "metadata_modified": datetime.datetime.now().isoformat(),
+        "metadata_modified": modified,
+        "upstream_metadata_created": modified,
+        "upstream_metadata_modified": modified,
     }
 
 
