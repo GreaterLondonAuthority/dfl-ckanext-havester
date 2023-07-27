@@ -293,6 +293,16 @@ class DataPressHarvester(HarvesterBase):
         except Exception as e:
             return "data"
 
+    def _guess_image_format(self, url):
+        try:
+            # Get the response headers from the image url
+            # (stream=True does not download the response body immediately)
+            r = requests.get(url, stream=True)
+            content_type = r.headers["Content-Type"]
+            return content_type.split("/")[1]
+        except Exception as e:
+            return "image"
+
     def _datapress_to_ckan(self, package_dict, harvest_object):
         """
         Shims to transform DataPress packages into a format CKAN understands.
@@ -373,6 +383,9 @@ class DataPressHarvester(HarvesterBase):
 
             if "format" not in resource or not resource["format"]:
                 resource["format"] = self._resource_format_from_url(resource["url"])
+
+            if resource["format"] == "image":
+                resource["format"] = self._guess_image_format(resource["url"])
 
         # We remove the "state" key so that the current state (ie active/deleted) is
         # used instead of the state in the source. This is to prevent deleted datasets
