@@ -66,14 +66,19 @@ class RedbridgeHarvester(HarvesterBase):
             )
             return pkg_dicts
 
+        # The Redbrige API doesn't have a single "list all datasets" endpoint,
+        # you have to go through a bit of a convoluted paths from "categories" to
+        # "schemas" to "datasets".
+        #
+        # The rest of the code in this function finds all the datasets served by
+        # the Redbridge API and converts them into a package_dict-like thing.
+
         category_urls = [
             f"{REDBRIDGE_API_URL}{c['FriendlyUrl']}"
             for c in xmltodict.parse(response.text)["ArrayOfRestCategory"][
                 "RestCategory"
             ]
         ]
-
-        # TODO Write some notes on the Redbridge API because I'm never going to remember how it works!
 
         for c in category_urls:
             try:
