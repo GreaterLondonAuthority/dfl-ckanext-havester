@@ -15,7 +15,9 @@ from ckanext.datapress_harvester.util import (
     get_package_extra_val,
     upsert_package_extra,
     sanitise,
-    get_harvested_dataset_ids
+    get_harvested_dataset_ids,
+    add_default_extras,
+    add_existing_extras
 )
 log = logging.getLogger(__name__)
 
@@ -254,23 +256,6 @@ class SODAHarvester(HarvesterBase):
         )
         return True
 
-    def _add_defaults_to_new_dataset(self, package_dict):
-        package_dict.pop("org_name")
-        package_dict.pop("org_link")
-        default_keys = [
-            "author",
-            "author_email",
-            "license_id",
-            "license_title",
-            "url",
-            "version"
-        ]
-        for key in default_keys:
-            if key not in package_dict:
-                package_dict[key] = ""
-        package_dict["extras"] = [{"key": "data_quality", "value": ""}]
-        return
-
     def import_stage(self, harvest_object):
         base_context = {
             "model": model,
@@ -308,8 +293,8 @@ class SODAHarvester(HarvesterBase):
                         owner_org = harvest_source['organization']['name']
 
                     package_dict["owner_org"] = owner_org
-                    self._add_defaults_to_new_dataset(package_dict)
 
+                    add_default_extras(package_dict)
 
                     result = self._create_or_update_package(package_dict,
                                                             harvest_object,
@@ -331,14 +316,15 @@ class SODAHarvester(HarvesterBase):
                         return "unchanged"
                     else:
                         package_dict = {**existing_dataset, **self._dataset_to_pkgdict(imported_dataset)}
+                        add_existing_extras(package_dict, base_context.copy())
 
-                    upsert_package_extra(
-                        package_dict["extras"], "content_hash", imported_dataset["content_hash"]
-                    )
+                        upsert_package_extra(
+                            package_dict["extras"], "content_hash", imported_dataset["content_hash"]
+                        )
 
-                    result = self._create_or_update_package(package_dict,
-                                                            harvest_object,
-                                                            package_dict_form="package_show")
-                    return result
+                        result = self._create_or_update_package(package_dict,
+                                                                harvest_object,
+                                                                package_dict_form="package_show")
+                        return result
                 except Exception as e:
                     self._save_object_error("Error modifying existing dataset: %s" % e, harvest_object, "Import")

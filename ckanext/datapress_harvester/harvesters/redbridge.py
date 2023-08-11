@@ -214,20 +214,6 @@ class RedbridgeHarvester(HarvesterBase):
             )
             package_dict["owner_org"] = harvest_source.get("owner_org")
 
-            # Set some default keys so CKAN does not report them as being changed later.
-            default_keys = [
-                "author",
-                "author_email",
-                "url",
-                "version",
-            ]
-            for key in default_keys:
-                if key not in package_dict:
-                    package_dict[key] = ""
-
-            if "extras" not in package_dict:
-                package_dict["extras"] = []
-
             add_existing_extras(package_dict, base_context.copy())
 
             add_default_extras(package_dict)

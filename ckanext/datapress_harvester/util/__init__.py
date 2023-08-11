@@ -155,6 +155,22 @@ def add_existing_extras(pkg_dict, context):
 
 
 def add_default_extras(pkg_dict):
+    # Set some default keys so CKAN does not report them as being changed later.
+    default_keys = [
+        "author",
+        "author_email",
+        "license_id",
+        "license_title",
+        "url",
+        "version",
+    ]
+    for key in default_keys:
+        if key not in pkg_dict:
+            pkg_dict[key] = ""
+
+    if "extras" not in pkg_dict:
+        pkg_dict["extras"] = []
+
     # Add an empty data_quality field to extras if it's not already there
     if get_package_extra_val(pkg_dict["extras"], "data_quality") is None:
         pkg_dict["extras"].append({"key": "data_quality", "value": ""})
