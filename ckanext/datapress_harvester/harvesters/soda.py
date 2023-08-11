@@ -16,6 +16,7 @@ from ckanext.datapress_harvester.util import (
     upsert_package_extra,
     sanitise,
     get_harvested_dataset_ids,
+    add_default_keys,
     add_default_extras,
     add_existing_extras
 )
@@ -270,7 +271,7 @@ class SODAHarvester(HarvesterBase):
             case "delete":
                 try:
                     ok = self._delete_dataset(base_context.copy(), imported_dataset)
-                    log.info("Successfullt deleted")
+                    log.info("Successfully deleted")
                     return ok
                 except Exception as e:
                     self._save_object_error("Failed to delete dataset: %s" % e,
@@ -294,6 +295,7 @@ class SODAHarvester(HarvesterBase):
 
                     package_dict["owner_org"] = owner_org
 
+                    add_default_keys(package_dict)
                     add_default_extras(package_dict)
 
                     result = self._create_or_update_package(package_dict,

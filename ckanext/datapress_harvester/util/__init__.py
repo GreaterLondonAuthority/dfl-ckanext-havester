@@ -146,7 +146,7 @@ def add_existing_extras(pkg_dict, context):
         )
     except Exception as e:
         # If the package doesn't exist, there aren't any extras to transfer
-        extras_to_transfer = {}
+        extras_to_transfer = []
 
     for e in extras_to_transfer:
         upsert_package_extra(pkg_dict["extras"], e["key"], e["value"])
@@ -154,7 +154,7 @@ def add_existing_extras(pkg_dict, context):
     return extras_to_transfer
 
 
-def add_default_extras(pkg_dict):
+def add_default_keys(pkg_dict):
     # Set some default keys so CKAN does not report them as being changed later.
     default_keys = [
         "author",
@@ -170,7 +170,10 @@ def add_default_extras(pkg_dict):
 
     if "extras" not in pkg_dict:
         pkg_dict["extras"] = []
+    return
 
+
+def add_default_extras(pkg_dict):
     # Add an empty data_quality field to extras if it's not already there
     if get_package_extra_val(pkg_dict["extras"], "data_quality") is None:
         pkg_dict["extras"].append({"key": "data_quality", "value": ""})
