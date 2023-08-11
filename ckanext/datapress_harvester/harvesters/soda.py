@@ -14,7 +14,8 @@ from ckan.logic import NotFound
 from ckanext.datapress_harvester.util import (
     get_package_extra_val,
     upsert_package_extra,
-    sanitise
+    sanitise,
+    get_harvested_dataset_ids
 )
 log = logging.getLogger(__name__)
 
@@ -162,7 +163,6 @@ class SODAHarvester(HarvesterBase):
                 return None
 
             data = response.json()
-            log.info(f"Contains {len(data['results'])} items")
             if total_num_results == float("inf"):
                 total_num_results = data["resultSetSize"]
             datasets.extend(data["results"])
@@ -170,18 +170,43 @@ class SODAHarvester(HarvesterBase):
             log.info(f"Fetched {len(datasets)} out of {total_num_results} datasets")
 
         log.info(f"Converting datasets into HarvestObjects")
+
+        catalog_entries = [self._create_catalog_entry(d) for d in datasets]
+
+        source_ds_ids = {d["package_id"] for d in catalog_entries}
+        existing_ids = get_harvested_dataset_ids(harvest_job.source.id)
+        deleted_ids = existing_ids - source_ds_ids
+        log.info(f"""Fetched changes from source:
+        {len(source_ds_ids - existing_ids)} to add
+        {len(existing_ids.intersection(source_ds_ids))} to modify
+        {len(deleted_ids)} to delete
+        """)
+
         object_ids = []
         try:
-            for d in datasets:
-                d = self._create_catalog_entry(d)
+            for d in catalog_entries:
+                pkg_id = d["package_id"]
+                d["action"] = "update" if pkg_id in existing_ids else "create"
                 obj = HarvestObject(
-                    guid=d["package_id"], job=harvest_job, content=json.dumps(d)
+                    guid=pkg_id, job=harvest_job, content=json.dumps(d)
                 )
                 obj.save()
                 object_ids.append(obj.id)
+        except Exception as e:
+            self._save_gather_error("Error gathering dataset updates: %r" % e.message, harvest_job)
+        try:
+            for pk_id in deleted_ids:
+                obj = HarvestObject(
+                    guid=pk_id,
+                    job=harvest_job,
+                    content=json.dumps({"id": pk_id, "action": "delete"})
+                )
+                obj.save()
+                log.info(obj)
+                object_ids.append(obj.id)
             return object_ids
         except Exception as e:
-            self._save_gather_error("%r" % e.message, harvest_job)
+            self._save_gather_error("Error gathering datasets to delete: %r" % e.message, harvest_job)
 
 
     def _dataset_to_pkgdict(self, dataset):
@@ -221,6 +246,31 @@ class SODAHarvester(HarvesterBase):
             )
             return org["id"]
 
+    def _delete_dataset(self, base_context, pkg_dict):
+        pkg_id = pkg_dict["id"]
+        log.info(f"Deleting dataset {pkg_id}")
+        result = tk.get_action("dataset_purge")(
+            base_context.copy(), pkg_dict
+        )
+        return True
+
+    def _add_defaults_to_new_dataset(self, package_dict):
+        package_dict.pop("org_name")
+        package_dict.pop("org_link")
+        default_keys = [
+            "author",
+            "author_email",
+            "license_id",
+            "license_title",
+            "url",
+            "version"
+        ]
+        for key in default_keys:
+            if key not in package_dict:
+                package_dict[key] = ""
+        package_dict["extras"] = [{"key": "data_quality", "value": ""}]
+        return
+
     def import_stage(self, harvest_object):
         base_context = {
             "model": model,
@@ -230,62 +280,65 @@ class SODAHarvester(HarvesterBase):
 
         imported_dataset = json.loads(harvest_object.content)
 
-        existing_dataset = {}
-        try:
-            existing_dataset = tk.get_action("package_show")(
-                base_context.copy(), {"id": imported_dataset["package_id"]}
-            )
-            existing_hash = get_package_extra_val(
-                existing_dataset["extras"], "content_hash"
-            )
-            if existing_hash == imported_dataset["content_hash"]:
-                log.info(f"Dataset \"{imported_dataset['name']}\" has not been changed. Skipping.")
-                return "unchanged"
-        except tk.ObjectNotFound as e:
-            log.info(f"Dataset \"{imported_dataset['name']}\" does not currently exist. Importing...")
 
-        try:
-            package_dict = {**existing_dataset, **self._dataset_to_pkgdict(imported_dataset)}
-            if self.create_organisations and package_dict["org_name"] is not None:
-                owner_org = self._maybe_create_organisation(base_context,
-                                                            package_dict.get("org_name"),
-                                                            package_dict.get("org_link"))
-            else:
-                harvest_source = tk.get_action("package_show")(
-                    base_context.copy(), {"id": harvest_object.source.id}
-                )
-                owner_org = harvest_source['organization']['name']
+        match imported_dataset["action"]:
+            case "delete":
+                try:
+                    ok = self._delete_dataset(base_context.copy(), imported_dataset)
+                    log.info("Successfullt deleted")
+                    return ok
+                except Exception as e:
+                    self._save_object_error("Failed to delete dataset: %s" % e,
+                                            harvest_object,
+                                            "Import")
+                    return False
+            case "create":
+                log.info(f"Dataset \"{imported_dataset['name']}\" does not currently exist. Importing...")
+                try:
+                    package_dict = self._dataset_to_pkgdict(imported_dataset)
+                    # Assuming that organisations never change - if they do we need to do this for update also
+                    if self.create_organisations and package_dict["org_name"] is not None:
+                        owner_org = self._maybe_create_organisation(base_context,
+                                                                    package_dict.get("org_name"),
+                                                                    package_dict.get("org_link"))
+                    else:
+                        harvest_source = tk.get_action("package_show")(
+                            base_context.copy(), {"id": harvest_object.source.id}
+                        )
+                        owner_org = harvest_source['organization']['name']
 
-            package_dict.pop("org_name")
-            package_dict.pop("org_link")
-            package_dict["owner_org"] = owner_org
+                    package_dict["owner_org"] = owner_org
+                    self._add_defaults_to_new_dataset(package_dict)
 
-            default_keys = [
-                "author",
-                "author_email",
-                "license_id",
-                "license_title",
-                "url",
-                "version"
-            ]
-            for key in default_keys:
-                if key not in package_dict:
-                    package_dict[key] = ""
 
-            if "extras" not in package_dict:
-                package_dict["extras"] = []
+                    result = self._create_or_update_package(package_dict,
+                                                            harvest_object,
+                                                            package_dict_form="package_show")
+                    return result
+                except Exception as e:
+                    self._save_object_error("Error creating new dataset: %s" % e, harvest_object, "Import")
 
-            if get_package_extra_val(package_dict["extras"], "data_quality") is None:
-                package_dict["extras"].append({"key": "data_quality", "value": ""})
+            case "update":
+                try:
+                    existing_dataset = tk.get_action("package_show")(
+                        base_context.copy(), {"id": imported_dataset["package_id"]}
+                    )
+                    existing_hash = get_package_extra_val(
+                        existing_dataset["extras"], "content_hash"
+                    )
+                    if existing_hash == imported_dataset["content_hash"]:
+                        log.info(f"Dataset \"{imported_dataset['name']}\" has not been changed. Skipping.")
+                        return "unchanged"
+                    else:
+                        package_dict = {**existing_dataset, **self._dataset_to_pkgdict(imported_dataset)}
 
-            upsert_package_extra(
-                package_dict["extras"], "content_hash", imported_dataset["content_hash"]
-            )
+                    upsert_package_extra(
+                        package_dict["extras"], "content_hash", imported_dataset["content_hash"]
+                    )
 
-            result = self._create_or_update_package(package_dict,
-                                                    harvest_object,
-                                                    package_dict_form="package_show")
-
-            return result
-        except Exception as e:
-            self._save_object_error("%s" % e, harvest_object, "Import")
+                    result = self._create_or_update_package(package_dict,
+                                                            harvest_object,
+                                                            package_dict_form="package_show")
+                    return result
+                except Exception as e:
+                    self._save_object_error("Error modifying existing dataset: %s" % e, harvest_object, "Import")
