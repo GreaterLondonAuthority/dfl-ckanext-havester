@@ -15,6 +15,7 @@ from ckanext.datapress_harvester.util import (
     upsert_package_extra,
     get_package_extra_val,
     get_harvested_dataset_ids,
+    add_default_keys,
     add_default_extras,
     add_existing_extras,
 )
@@ -193,7 +194,7 @@ class RedbridgeHarvester(HarvesterBase):
 
         try:
             package_dict = json.loads(harvest_object.content)
-            if package_dict["action"] == "delete":
+            if package_dict.get("action", None) == "delete":
                 log.info(f"Deleting dataset with ID: {package_dict['id']}")
                 result = toolkit.get_action("dataset_purge")(
                     base_context.copy(), package_dict
@@ -205,28 +206,13 @@ class RedbridgeHarvester(HarvesterBase):
             )
 
         try:
-            # Merge our scraped package dict into any existing package dict
-            # The keys in the dict returned by _dataset_to_pkgdict will override those in existing_dataset
-
             # Set the owner org of the new dataset to the org set in the harvest source
             harvest_source = toolkit.get_action("package_show")(
                 base_context.copy(), {"id": harvest_object.source.id}
             )
             package_dict["owner_org"] = harvest_source.get("owner_org")
 
-            # Set some default keys so CKAN does not report them as being changed later.
-            default_keys = [
-                "author",
-                "author_email",
-                "url",
-                "version",
-            ]
-            for key in default_keys:
-                if key not in package_dict:
-                    package_dict[key] = ""
-
-            if "extras" not in package_dict:
-                package_dict["extras"] = []
+            add_default_keys(package_dict)
 
             add_existing_extras(package_dict, base_context.copy())
 
