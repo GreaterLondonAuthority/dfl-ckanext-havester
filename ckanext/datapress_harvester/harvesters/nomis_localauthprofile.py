@@ -19,6 +19,8 @@ from ckanext.datapress_harvester.util import (
     sanitise,
     get_package_extra_val,
     upsert_package_extra,
+    add_default_extras,
+    add_existing_extras,
 )
 
 log = logging.getLogger(__name__)
@@ -321,9 +323,11 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
             if "extras" not in package_dict:
                 package_dict["extras"] = []
 
-            # Add an empty data quality field to extras if it's not already there
-            if get_package_extra_val(package_dict["extras"], "data_quality") is None:
-                package_dict["extras"].append({"key": "data_quality", "value": ""})
+            # Add any package[extras] from a preexisting version of this dataset
+            add_existing_extras(package_dict, base_context.copy())
+
+            # Add some default package[extras]
+            add_default_extras(package_dict)
 
             # Add the content hash or update the value if one existed
             upsert_package_extra(

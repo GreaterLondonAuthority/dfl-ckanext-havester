@@ -14,7 +14,13 @@ from ckan.plugins import toolkit
 from ckanext.harvest.model import HarvestObject
 from ckanext.harvest.harvesters import HarvesterBase
 
-from ckanext.datapress_harvester.util import remove_extras, upsert_package_extra
+from ckanext.datapress_harvester.util import (
+    remove_extras,
+    upsert_package_extra,
+    get_harvested_dataset_ids,
+    add_existing_extras,
+    add_default_extras,
+)
 
 import logging
 
@@ -148,32 +154,6 @@ class DataPressHarvester(HarvesterBase):
         """
         return package_dict
 
-    def _harvester_search_dict(self, source_id, page, limit):
-        return {
-            "fq": '+harvest_source_id:"{0}"'.format(source_id),
-            "fl": "id",
-            "rows": limit,
-            "start": (page - 1) * limit,
-        }
-
-    def _get_harvested_dataset_ids(self, harvest_source_id):
-        context = {"model": model, "session": model.Session}
-        page = 1
-        limit = 1000
-        query_result = toolkit.get_action("package_search")(
-            context,
-            self._harvester_search_dict(harvest_source_id, page, limit),
-        )
-        log.info(f"{query_result['count']} datasets harvested previously")
-        datasets = query_result["results"]
-        while len(datasets) < query_result["count"]:
-            page += 1
-            datasets += toolkit.get_action("package_search")(
-                context, self._harvester_search_dict(harvest_source_id, page, limit)
-            )["results"]
-
-        return {d["id"] for d in datasets}
-
     def gather_stage(self, harvest_job):
         log.debug("In DataPressHarvester gather_stage (%s)", harvest_job.source.url)
         toolkit.requires_ckan_version(min_version="2.0")
@@ -217,7 +197,7 @@ class DataPressHarvester(HarvesterBase):
         fetched_ids = {p["id"] for p in pkg_dicts}
 
         # Get the Set of ids of datasets in the database that belong to this harvest source
-        existing_dataset_ids = self._get_harvested_dataset_ids(harvest_job.source.id)
+        existing_dataset_ids = get_harvested_dataset_ids(harvest_job.source.id)
 
         # Datasets that are present locally but not upstream need to be deleted locally
         to_be_deleted = existing_dataset_ids - fetched_ids
@@ -426,29 +406,6 @@ class DataPressHarvester(HarvesterBase):
                 )
                 return True
 
-            try:
-                # Check whether a package already exists that we need to transfer the extras from:
-                existing_package = toolkit.get_action("package_show")(
-                    base_context.copy(),
-                    {"id": package_dict["id"], "use_default_schema": True},
-                )
-
-                # These extras keys *should* be updated on every run of the harvester
-                remove_from_extras = [
-                    "upstream_metadata_created",
-                    "upstream_metadata_modified",
-                    "upstream_url",
-                    "harvest_object_id",
-                    "harvest_source_id",
-                    "harvest_source_title",
-                ]
-                extras_to_transfer = remove_extras(
-                    existing_package["extras"], remove_from_extras
-                )
-            except Exception as e:
-                # If the package doesn't exist, there aren't any extras to transfer
-                extras_to_transfer = {}
-
             package_dict = self._datapress_to_ckan(package_dict, harvest_object)
 
             if package_dict.get("type") == "harvest":
@@ -627,8 +584,10 @@ class DataPressHarvester(HarvesterBase):
             # Add any existing extras here so they override any default extras
             # specified in the harvest source. E.g. if data_quality is set as a default_extra
             # we want to override that with whatever the current value is.
-            for e in extras_to_transfer:
-                upsert_package_extra(package_dict["extras"], e["key"], e["value"])
+            add_existing_extras(package_dict, base_context.copy())
+
+            # Add some default extras
+            add_default_extras(package_dict)
 
             package_dict["extras"] += [
                 {
