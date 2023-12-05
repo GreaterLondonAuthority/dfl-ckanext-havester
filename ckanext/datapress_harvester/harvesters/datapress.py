@@ -367,6 +367,19 @@ class DataPressHarvester(HarvesterBase):
             if resource["format"] == "image":
                 resource["format"] = self._guess_image_format(resource["url"])
 
+        # Remove the timezone from the dates. CKAN doesn't store it internally and it
+        # messes up date-based comparisons later if the timezone is kept (because the base
+        # CKAN harvester compares the string representation of the dates, not e.g. a datetime
+        # object.
+        # I.e. 2023-06-27T10:45:57.284Z comes after 2023-06-27T10:45:57.284000 alphanumerically,
+        # even though it's the same datetime)
+        package_dict["metadata_modified"] = strip_time_zone(
+            package_dict["metadata_modified"]
+        )
+        package_dict["metadata_created"] = strip_time_zone(
+            package_dict["metadata_created"]
+        )
+
         # We remove the "state" key so that the current state (ie active/deleted) is
         # used instead of the state in the source. This is to prevent deleted datasets
         # being marked as active.
@@ -599,11 +612,11 @@ class DataPressHarvester(HarvesterBase):
                 },
                 {
                     "key": "upstream_metadata_modified",
-                    "value": strip_time_zone(package_dict["metadata_modified"]),
+                    "value": package_dict["metadata_modified"],
                 },
                 {
                     "key": "upstream_metadata_created",
-                    "value": strip_time_zone(package_dict["metadata_created"]),
+                    "value": package_dict["metadata_created"],
                 },
             ]
 
@@ -619,7 +632,6 @@ class DataPressHarvester(HarvesterBase):
                 resource.pop("revision_id", None)
 
             package_dict = self.modify_package_dict(package_dict, harvest_object)
-
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form="package_show"
             )
