@@ -24,6 +24,13 @@ token to authenticate requests to Datapress.
 
 This API key is required to access specific private datasets.
 
+`harvest_private_datasets`
+
+This key if provided should be a boolean value, indicating whether or
+not the harvester should store metadata on private datasets that the
+harvester has fetched. The default value for this is `false`
+indicating that private datasets won't be indexed.
+
 ## CKAN
 
 `remote_orgs`

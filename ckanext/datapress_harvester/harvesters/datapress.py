@@ -146,6 +146,10 @@ class DataPressHarvester(HarvesterBase):
                 if not isinstance(config_obj["datapress_api_key"], str):
                     raise ValueError("datapress_api_key must be string")
 
+            if "harvest_private_datasets" in config_obj:
+                if not isinstance(config_obj["harvest_private_datasets"], bool):
+                    raise ValueError("harvest_private_datasets must be boolean")
+
         except ValueError as e:
             raise e
 
@@ -224,10 +228,9 @@ class DataPressHarvester(HarvesterBase):
             package_ids = set()
             object_ids = []
 
-            # Don't harvest anything marked as private
-            # (Not sure why private datasets are being returned by the datapress public API)
             for pkg_dict in pkg_dicts:
-                if pkg_dict["private"]:
+                if pkg_dict["private"] and not self.config.get('harvest_private_datasets'):
+                    log.info('Discarding private dataset %s %s', {pkg_dict["name"]}, {pkg_dict["id"]})
                     continue
 
                 if pkg_dict["id"] in package_ids:
