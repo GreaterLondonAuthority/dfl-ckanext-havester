@@ -15,6 +15,14 @@ enables the harvester to import remote organizations. Setting it to
 'create' will make an attempt to create the organizations by copying
 the details from the remote CKAN.
 
+`datapress_api_key`
+
+This optional key if provided should be a string containing a
+DataPress API key. If the key is provided the harvester will use the
+key to request a JWT token from DataPress, and will then use that
+token to authenticate requests to Datapress.
+
+This API key is required to access specific private datasets.
 
 ## CKAN
 
