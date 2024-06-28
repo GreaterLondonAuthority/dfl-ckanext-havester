@@ -36,6 +36,22 @@ supports many of the configuration options listed on the [CKAN harvester plugin
 repository](https://github.com/ckan/ckanext-harvest?tab=readme-ov-file#the-ckan-harvester)
 however these options have not yet been tested.
 
+An example configuration for harvesting private datasets with an API
+key is provided below:
+
+```json
+{"remote_orgs":"create",
+ "datapress_api_key":"<API_KEY>",
+ "harvest_private_datasets": true}
+```
+
+An example for harvesting a public datapress site ignoring private
+datasets, is provided below:
+
+```json
+{"remote_orgs":"create"}
+```
+
 ## CKAN
 
 `remote_orgs`
@@ -52,13 +68,6 @@ to work.
 
 ## SODA
 
-E.g.
-
-```json
-{"app_token": "<TOKEN_HERE>", "remote_orgs": "create"}
-```
-
-
 `remote_orgs`
 
 By default, remote organizations are ignored. Setting this property
@@ -69,6 +78,13 @@ the details from the remote CKAN.
 `app_token` - All requests should include an app token that identifies
 your application, and each application should have its own unique app
 token. See [Socrata Developer Portal](https://dev.socrata.com/foundry/opendata.camden.gov.uk/uqwb-mdhe/embed)
+
+E.g.
+
+```json
+{"app_token": "<TOKEN_HERE>", "remote_orgs": "create"}
+```
+
 
 ## Redbridge and NOMIS
 
