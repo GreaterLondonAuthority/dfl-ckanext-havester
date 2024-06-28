@@ -31,6 +31,11 @@ not the harvester should store metadata on private datasets that the
 harvester has fetched. The default value for this is `false`
 indicating that private datasets won't be indexed.
 
+As the Datapress harvester is a fork of the CKAN harvester it also
+supports many of the configuration options listed on the [CKAN harvester plugin
+repository](https://github.com/ckan/ckanext-harvest?tab=readme-ov-file#the-ckan-harvester)
+however these options have not yet been tested.
+
 ## CKAN
 
 `remote_orgs`
