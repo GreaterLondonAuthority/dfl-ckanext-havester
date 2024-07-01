@@ -142,6 +142,14 @@ class DataPressHarvester(HarvesterBase):
                 if not isinstance(config_obj["read_only"], bool):
                     raise ValueError("read_only must be boolean")
 
+            if "datapress_api_key" in config_obj:
+                if not isinstance(config_obj["datapress_api_key"], str):
+                    raise ValueError("datapress_api_key must be string")
+
+            if "harvest_private_datasets" in config_obj:
+                if not isinstance(config_obj["harvest_private_datasets"], bool):
+                    raise ValueError("harvest_private_datasets must be boolean")
+
         except ValueError as e:
             raise e
 
@@ -153,6 +161,18 @@ class DataPressHarvester(HarvesterBase):
         creating or updating the actual package.
         """
         return package_dict
+
+    def request_jwt_token(self,remote_datapress_base_url):
+        """
+        Request a datapress JWT token from its undocumented /api/whoami route.
+        Data press developers were consulted by Sven Latham, and it seems this is
+        the recommended method.
+        """
+        url_route = f'{remote_datapress_base_url}/api/whoami'
+        json_response = requests.get(url_route,headers={'Authorization': self.config['datapress_api_key'] }).json()
+        jwt_token = json_response['readonly']['libraryJwt']
+        #log.debug(f'JWT token: {jwt_token}')
+        return jwt_token
 
     def gather_stage(self, harvest_job):
         log.debug("In DataPressHarvester gather_stage (%s)", harvest_job.source.url)
@@ -208,10 +228,9 @@ class DataPressHarvester(HarvesterBase):
             package_ids = set()
             object_ids = []
 
-            # Don't harvest anything marked as private
-            # (Not sure why private datasets are being returned by the datapress public API)
             for pkg_dict in pkg_dicts:
-                if pkg_dict["private"]:
+                if pkg_dict["private"] and not self.config.get('harvest_private_datasets'):
+                    log.info('Discarding private dataset %s %s', {pkg_dict["name"]}, {pkg_dict["id"]})
                     continue
 
                 if pkg_dict["id"] in package_ids:
@@ -255,9 +274,26 @@ class DataPressHarvester(HarvesterBase):
 
     def _fetch_packages(self, remote_datapress_base_url):
         """Fetch the current package list from DataPress"""
+
+        if self.config.get('datapress_api_key'):
+            # NOTE: Data press uses a non-standard 'Identity' HTTP
+            # header that we need to use to pass the JWT
+            # authentication token.
+            #
+            # If you don't pass this token in this header, datapress
+            # will not reveal organisation/collaborator datasets that
+            # the user with this API key should be able to see.
+            request_headers = {'Identity': self.request_jwt_token(remote_datapress_base_url)}
+        else:
+            request_headers = {}
+
+        # This route is datapress's CKAN compatibility API (it does not support all CKANs flags)
+        # Datapress documentation for this route can be found here:
+        #
+        # https://datapress.gitbook.io/datapress/ckan-requests
         url = f"{remote_datapress_base_url}/api/action/current_package_list_with_resources"
         log.debug("Fetching DataPress datasets: %s", url)
-        data = requests.get(url).json()
+        data = requests.get(url,headers=request_headers).json()
         assert data["success"]
         return data["result"]
 
