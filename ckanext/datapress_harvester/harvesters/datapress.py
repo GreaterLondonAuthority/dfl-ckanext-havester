@@ -272,6 +272,16 @@ class DataPressHarvester(HarvesterBase):
         except Exception as e:
             self._save_gather_error("%r" % e.message, harvest_job)
 
+    def _fetch_datapress_api_fields(self, remote_datapress_base_url, request_headers):
+        url = f"{remote_datapress_base_url}/api/datasets/export.json"
+        datapress_data = requests.get(url,headers=request_headers).json()
+
+        return {item['id']: {k: v for k, v in
+                             {'london_smallest_geography': item.get('london_smallest_geography'),
+                              'update_frequency': item.get('update_frequency')}.items() if v}
+                for item in datapress_data}
+
+
     def _fetch_packages(self, remote_datapress_base_url):
         """Fetch the current package list from DataPress"""
 
@@ -287,6 +297,8 @@ class DataPressHarvester(HarvesterBase):
         else:
             request_headers = {}
 
+        extra_fields_lookup = self._fetch_datapress_api_fields(remote_datapress_base_url, request_headers)
+
         # This route is datapress's CKAN compatibility API (it does not support all CKANs flags)
         # Datapress documentation for this route can be found here:
         #
@@ -294,8 +306,18 @@ class DataPressHarvester(HarvesterBase):
         url = f"{remote_datapress_base_url}/api/action/current_package_list_with_resources"
         log.debug("Fetching DataPress datasets: %s", url)
         data = requests.get(url,headers=request_headers).json()
+
         assert data["success"]
-        return data["result"]
+
+        results = data["result"]
+
+        for item in results:
+            extra_fields = extra_fields_lookup.get(item['id'],{})
+            item.update(extra_fields)
+
+        breakpoint()
+            
+        return results
 
     def fetch_stage(self, harvest_object):
         # Nothing to do here - we got the package dict in the search in the
@@ -446,7 +468,8 @@ class DataPressHarvester(HarvesterBase):
 
         try:
             package_dict = json.loads(harvest_object.content)
-
+            
+            breakpoint()
             # Delete the dataset if its "action" is "delete"
             if package_dict["action"] == "delete":
                 log.info(f"Deleting dataset with ID: {package_dict['id']}")
