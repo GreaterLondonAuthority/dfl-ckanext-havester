@@ -160,6 +160,21 @@ class DataPressHarvester(HarvesterBase):
         Allows custom harvesters to modify the package dict before
         creating or updating the actual package.
         """
+
+        extra_fields = self.extra_fields_lookup.get(package_dict['id'],{})
+
+        if extra_fields.get('london_smallest_geography'):
+            # TODO TIDY ME UP
+            # TODO HANDLE IF extras does not exist
+            package_dict['extras'] += [{'key': 'london_smallest_geography', 'value': extra_fields.get('london_smallest_geography') }]
+
+        if extra_fields.get('update_frequency'):
+            # TODO TIDY ME UP
+            # TODO HANDLE IF extras does not exist
+            package_dict['extras'] += [{'key': 'update_frequency', 'value': extra_fields.get('update_frequency') }]
+
+        breakpoint()
+        
         return package_dict
 
     def request_jwt_token(self,remote_datapress_base_url):
@@ -297,7 +312,7 @@ class DataPressHarvester(HarvesterBase):
         else:
             request_headers = {}
 
-        extra_fields_lookup = self._fetch_datapress_api_fields(remote_datapress_base_url, request_headers)
+        self.extra_fields_lookup = self._fetch_datapress_api_fields(remote_datapress_base_url, request_headers)
 
         # This route is datapress's CKAN compatibility API (it does not support all CKANs flags)
         # Datapress documentation for this route can be found here:
@@ -311,12 +326,10 @@ class DataPressHarvester(HarvesterBase):
 
         results = data["result"]
 
-        for item in results:
-            extra_fields = extra_fields_lookup.get(item['id'],{})
-            item.update(extra_fields)
+        # for item in results:
+        #     extra_fields = extra_fields_lookup.get(item['id'],{})
+        #     item.update(extra_fields)
 
-        breakpoint()
-            
         return results
 
     def fetch_stage(self, harvest_object):
