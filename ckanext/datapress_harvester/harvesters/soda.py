@@ -298,6 +298,10 @@ class SODAHarvester(HarvesterBase):
                     add_default_keys(package_dict)
                     add_default_extras(package_dict)
 
+                    upsert_package_extra(
+                        package_dict["extras"], "harvest_source_frequency", harvest_object.source.frequency
+                    )
+
                     result = self._create_or_update_package(package_dict,
                                                             harvest_object,
                                                             package_dict_form="package_show")
@@ -322,6 +326,9 @@ class SODAHarvester(HarvesterBase):
 
                         upsert_package_extra(
                             package_dict["extras"], "content_hash", imported_dataset["content_hash"]
+                        )
+                        upsert_package_extra(
+                            package_dict["extras"], "harvest_source_frequency", harvest_object.source.frequency
                         )
 
                         result = self._create_or_update_package(package_dict,

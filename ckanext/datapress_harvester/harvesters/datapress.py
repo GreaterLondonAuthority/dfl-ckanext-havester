@@ -600,7 +600,7 @@ class DataPressHarvester(HarvesterBase):
 
             if "extras" not in package_dict:
                 package_dict["extras"] = []
-
+            
             default_extras = {}
             default_extras.update(self.config.get("default_extras", {}))
 
@@ -623,6 +623,7 @@ class DataPressHarvester(HarvesterBase):
                             harvest_source_id=harvest_object.job.source.id,
                             harvest_source_url=harvest_object.job.source.url.strip("/"),
                             harvest_source_title=harvest_object.job.source.title,
+                            harvest_source_frequency=harvest_object.job.source.frequency,
                             harvest_job_id=harvest_object.job.id,
                             harvest_object_id=harvest_object.id,
                             dataset_id=package_dict["id"],
@@ -637,6 +638,10 @@ class DataPressHarvester(HarvesterBase):
 
             # Add some default extras
             add_default_extras(package_dict)
+
+            upsert_package_extra(
+                package_dict["extras"], "harvest_source_frequency", harvest_object.source.frequency
+            )
 
             package_dict["extras"] += [
                 {
