@@ -212,6 +212,7 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
             "querylink": "https://www.nomisweb.co.uk" + querylink["href"],
             "license_id": "uk-ogl",
             "content_hash": content_hash,
+            "borough_name": borough_name,
         }
 
     def gather_stage(self, harvest_job):
@@ -332,6 +333,12 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
             # Add the content hash or update the value if one existed
             upsert_package_extra(
                 package_dict["extras"], "content_hash", scraped_dataset["content_hash"]
+            )
+            upsert_package_extra(
+                package_dict["extras"], "harvest_source_frequency", harvest_object.source.frequency
+            )
+            upsert_package_extra(
+                package_dict["extras"], "harvest_source_borough_name", scraped_dataset["borough_name"]
             )
 
             result = self._create_or_update_package(
