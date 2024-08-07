@@ -160,6 +160,24 @@ class DataPressHarvester(HarvesterBase):
         Allows custom harvesters to modify the package dict before
         creating or updating the actual package.
         """
+        unprocessed_dataset_dict = json.loads(harvest_object.content)
+
+        if unprocessed_dataset_dict.get("london_smallest_geography"):
+            package_dict["extras"] += [
+                {
+                    "key": "london_smallest_geography",
+                    "value": unprocessed_dataset_dict["london_smallest_geography"],
+                }
+            ]
+
+        if unprocessed_dataset_dict.get("update_frequency"):
+            package_dict["extras"] += [
+                {
+                    "key": "update_frequency",
+                    "value": unprocessed_dataset_dict["update_frequency"],
+                }
+            ]
+
         return package_dict
 
     def request_jwt_token(self,remote_datapress_base_url):
@@ -171,7 +189,7 @@ class DataPressHarvester(HarvesterBase):
         url_route = f'{remote_datapress_base_url}/api/whoami'
         json_response = requests.get(url_route,headers={'Authorization': self.config['datapress_api_key'] }).json()
         jwt_token = json_response['readonly']['libraryJwt']
-        #log.debug(f'JWT token: {jwt_token}')
+        # log.debug(f'JWT token: {jwt_token}')
         return jwt_token
 
     def gather_stage(self, harvest_job):
@@ -272,6 +290,27 @@ class DataPressHarvester(HarvesterBase):
         except Exception as e:
             self._save_gather_error("%r" % e.message, harvest_job)
 
+    def _fetch_datapress_extra_fields(self, remote_datapress_base_url, request_headers):
+        """
+        Get extra fields from DataPress API that aren't present in the datapress package list (see _fetch_packages())
+        """
+        url = f"{remote_datapress_base_url}/api/datasets/export.json"
+        response = requests.get(url, headers=request_headers)
+        response.raise_for_status()
+        response_dict = response.json()
+
+        return {
+            item["id"]: {
+                k: v
+                for k, v in {
+                    "london_smallest_geography": item.get("london_smallest_geography"),
+                    "update_frequency": item.get("update_frequency"),
+                }.items()
+                if v
+            }
+            for item in response_dict
+        }
+
     def _fetch_packages(self, remote_datapress_base_url):
         """Fetch the current package list from DataPress"""
 
@@ -293,9 +332,22 @@ class DataPressHarvester(HarvesterBase):
         # https://datapress.gitbook.io/datapress/ckan-requests
         url = f"{remote_datapress_base_url}/api/action/current_package_list_with_resources"
         log.debug("Fetching DataPress datasets: %s", url)
-        data = requests.get(url,headers=request_headers).json()
+        data = requests.get(url, headers=request_headers).json()
+
         assert data["success"]
-        return data["result"]
+
+        results = data["result"]
+
+        # Get extra fields from DataPress API that aren't present in the datapress package list
+        self.extra_fields_lookup = self._fetch_datapress_extra_fields(
+            remote_datapress_base_url, request_headers
+        )
+
+        for dataset_dict in results:
+            extra_fields = self.extra_fields_lookup.get(dataset_dict["id"], {})
+            dataset_dict.update(extra_fields)
+
+        return results
 
     def fetch_stage(self, harvest_object):
         # Nothing to do here - we got the package dict in the search in the
@@ -600,7 +652,7 @@ class DataPressHarvester(HarvesterBase):
 
             if "extras" not in package_dict:
                 package_dict["extras"] = []
-            
+
             default_extras = {}
             default_extras.update(self.config.get("default_extras", {}))
 
@@ -638,10 +690,6 @@ class DataPressHarvester(HarvesterBase):
 
             # Add some default extras
             add_default_extras(package_dict)
-
-            upsert_package_extra(
-                package_dict["extras"], "harvest_source_frequency", harvest_object.source.frequency
-            )
 
             package_dict["extras"] += [
                 {
