@@ -140,7 +140,8 @@ def add_existing_extras(pkg_dict, context):
             "harvest_object_id",
             "harvest_source_id",
             "harvest_source_title",
-            "harvest_source_frequency",
+            "london_smallest_geography",
+            "update_frequency",
         ]
         extras_to_transfer = remove_extras(
             existing_package["extras"], remove_from_extras
