@@ -177,6 +177,13 @@ class DataPressHarvester(HarvesterBase):
                     "value": unprocessed_dataset_dict["update_frequency"],
                 }
             ]
+            
+        package_dict["extras"] += [
+            {
+                "key": "sanitized_notes",
+                "value": self._sanitise_markup(unprocessed_dataset_dict["notes"])
+            }
+        ]
 
         return package_dict
 
@@ -473,6 +480,18 @@ class DataPressHarvester(HarvesterBase):
         # being marked as active.
         del package_dict["state"]
         return package_dict
+
+    def _sanitise_markup(self, html: str, remove_tags: bool = True) -> str:
+        from bs4 import BeautifulSoup
+
+        soup = BeautifulSoup(html, "html.parser")
+
+        for data in soup(["style", "script", "iframe", "br"]):
+            data.decompose()
+
+        if remove_tags:
+            return " ".join(soup.stripped_strings)
+        return str(soup)
 
     def import_stage(self, harvest_object):
         log.debug("In DataPressHarvester import_stage")
