@@ -166,6 +166,8 @@ def add_existing_extras(pkg_dict, context):
             "harvest_source_title",
             "london_smallest_geography",
             "update_frequency",
+            "sanitized_notes",
+            "sanitized_search_description",
         ]
         extras_to_transfer = remove_extras(
             existing_package["extras"], remove_from_extras
