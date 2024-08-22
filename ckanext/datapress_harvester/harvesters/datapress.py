@@ -1,28 +1,24 @@
 from __future__ import absolute_import
-import requests
-from requests.exceptions import HTTPError, RequestException
 
+import logging
 import os
 import re
 import urllib
 
+import requests
 from ckan import model
-from ckan.logic import ValidationError, NotFound, get_action, validators
 from ckan.lib.helpers import json
+from ckan.logic import NotFound, ValidationError, get_action, validators
 from ckan.plugins import toolkit
 
-from ckanext.harvest.model import HarvestObject
-from ckanext.harvest.harvesters import HarvesterBase
-
 from ckanext.datapress_harvester.util import (
-    remove_extras,
-    upsert_package_extra,
-    get_harvested_dataset_ids,
-    add_existing_extras,
     add_default_extras,
+    add_existing_extras,
+    get_harvested_dataset_ids,
+    sanitise_markup,
 )
-
-import logging
+from ckanext.harvest.harvesters import HarvesterBase
+from ckanext.harvest.model import HarvestObject
 
 log = logging.getLogger(__name__)
 
@@ -177,6 +173,22 @@ class DataPressHarvester(HarvesterBase):
                     "value": unprocessed_dataset_dict["update_frequency"],
                 }
             ]
+
+        package_dict["extras"] += [
+            {
+                "key": "sanitized_notes",
+                "value": sanitise_markup(unprocessed_dataset_dict.get("notes", "")),
+            }
+        ]
+
+        package_dict["extras"] += [
+            {
+                "key": "sanitized_search_description",
+                "value": sanitise_markup(
+                    unprocessed_dataset_dict.get("search_description", "")
+                ),
+            }
+        ]
 
         return package_dict
 

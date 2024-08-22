@@ -17,6 +17,7 @@ from ckanext.datapress_harvester.util import (
     NOMIS_LAP_SELECT_URL,
     NOMIS_LMP_BASE,
     sanitise,
+    sanitise_markup,
     get_package_extra_val,
     upsert_package_extra,
     add_default_extras,
@@ -288,11 +289,11 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
             existing_hash = get_package_extra_val(
                 existing_dataset["extras"], "content_hash"
             )
-            if existing_hash == scraped_dataset["content_hash"]:
-                log.info(
-                    f"Dataset \"{scraped_dataset['name']}\" has not been changed. Skipping."
-                )
-                return "unchanged"
+            # if existing_hash == scraped_dataset["content_hash"]:
+            #     log.info(
+            #         f"Dataset \"{scraped_dataset['name']}\" has not been changed. Skipping."
+            #     )
+            #     return "unchanged"
         # If not, a new dataset needs to be created.
         except tk.ObjectNotFound as e:
             log.info(
@@ -339,6 +340,12 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
             )
             upsert_package_extra(
                 package_dict["extras"], "harvest_source_borough_name", scraped_dataset["borough_name"]
+            )
+            upsert_package_extra(
+                package_dict["extras"], "sanitized_notes", sanitise_markup(package_dict.get("notes",""))
+            )
+            upsert_package_extra(
+                package_dict["extras"], "sanitized_search_description", sanitise_markup(package_dict.get("search_description", "")) 
             )
 
             result = self._create_or_update_package(
