@@ -17,7 +17,6 @@ from ckanext.datapress_harvester.util import (
     NOMIS_LAP_SELECT_URL,
     NOMIS_LMP_BASE,
     sanitise,
-    sanitise_markup,
     get_package_extra_val,
     upsert_package_extra,
     add_default_extras,
@@ -340,12 +339,6 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
             )
             upsert_package_extra(
                 package_dict["extras"], "harvest_source_borough_name", scraped_dataset["borough_name"]
-            )
-            upsert_package_extra(
-                package_dict["extras"], "sanitized_notes", sanitise_markup(package_dict.get("notes",""))
-            )
-            upsert_package_extra(
-                package_dict["extras"], "sanitized_search_description", sanitise_markup(package_dict.get("search_description", "")) 
             )
 
             result = self._create_or_update_package(

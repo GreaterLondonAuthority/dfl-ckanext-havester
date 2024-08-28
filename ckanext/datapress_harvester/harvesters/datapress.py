@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import urllib
+from datetime import datetime
 
 import requests
 from ckan import model
@@ -15,10 +16,10 @@ from ckanext.datapress_harvester.util import (
     add_default_extras,
     add_existing_extras,
     get_harvested_dataset_ids,
-    sanitise_markup,
 )
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject
+
 
 log = logging.getLogger(__name__)
 
@@ -174,21 +175,9 @@ class DataPressHarvester(HarvesterBase):
                 }
             ]
 
-        package_dict["extras"] += [
-            {
-                "key": "sanitized_notes",
-                "value": sanitise_markup(unprocessed_dataset_dict.get("notes", "")),
-            }
-        ]
-
-        package_dict["extras"] += [
-            {
-                "key": "sanitized_search_description",
-                "value": sanitise_markup(
-                    unprocessed_dataset_dict.get("search_description", "")
-                ),
-            }
-        ]
+        # Update modified date so package is updated in database
+        # (see _create_or_update_package() in harvester plugin)
+        package_dict["metadata_modified"] = strip_time_zone(datetime.now().isoformat())
 
         return package_dict
 

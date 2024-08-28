@@ -1,7 +1,5 @@
 import re
 
-import bleach
-from bs4 import BeautifulSoup
 from ckan import model
 from ckan.plugins import toolkit
 
@@ -57,28 +55,6 @@ def sanitise(s):
     no_duplicate_spaces = re.sub("\s{2,}", " ", without_non_alpha)
     no_spaces = no_duplicate_spaces.replace(" ", "-")
     return no_spaces.lower()
-
-
-def sanitise_markup(html: str, remove_tags: bool = True) -> str:
-    """
-    Sanitise and fix markup in HTML strings.
-
-    :param remove_tags: If True then remove all html tags from the string and only return the text.
-    If False, keep all tags in bleach's ALLOWED_TAGS list and attributes in ALLOWED_ATTRIBUTES list.
-    """
-    soup = BeautifulSoup(html, "lxml")
-
-    for data in soup(["style", "script", "iframe", "br"]):
-        data.decompose()
-
-    # Bleach sanitises HTML string by removing unsafe tags and attributes.
-    # It also removes mismatched tags.
-    # NOTE: CSS in style arrtibutes isn't sanitised but can be added through additional dependencies, 
-    # see bleach.CSS_SANITIZER.
-    if remove_tags:
-        return bleach.clean(" ".join(soup.stripped_strings), strip=True)
-
-    return bleach.clean(str(soup), strip=True)
 
 
 # Helper functions for getting and setting values in package["extras"].
@@ -166,8 +142,7 @@ def add_existing_extras(pkg_dict, context):
             "harvest_source_title",
             "london_smallest_geography",
             "update_frequency",
-            "sanitized_notes",
-            "sanitized_search_description",
+            "notes_with_markup",
         ]
         extras_to_transfer = remove_extras(
             existing_package["extras"], remove_from_extras
