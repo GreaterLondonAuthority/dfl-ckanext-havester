@@ -11,6 +11,14 @@ from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject
 from ckan.logic import NotFound 
 
+import csv
+
+with open("organisation_mappings.csv", mode='r') as csvfile:
+    ORGAINZATION_DICT = {}
+    reader = csv.DictReader(csvfile)
+    for row in reader:
+         ORGAINZATION_DICT[row["Original ID"]] = row["Override ID"]
+
 from ckanext.datapress_harvester.util import (
     get_package_extra_val,
     upsert_package_extra,
@@ -228,8 +236,11 @@ class SODAHarvester(HarvesterBase):
 
     def _maybe_create_organisation(self, base_context, org_name, org_link):
         org_id = sanitise(org_name)
+
+        mapped_org_id = ORGAINZATION_DICT.get(org_id, org_id)
+
         try:
-            data_dict = {"id": org_id}
+            data_dict = {"id": mapped_org_id}
             org = tk.get_action("organization_show")(
                 base_context.copy(), data_dict
             )
