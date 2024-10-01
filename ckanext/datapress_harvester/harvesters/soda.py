@@ -2,22 +2,26 @@ import logging
 import requests
 import hashlib
 import datetime
-
 from ckan import model
 from ckan.lib.helpers import json
 import ckan.plugins.toolkit as tk
-
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject
 from ckan.logic import NotFound 
-
 import csv
 
-with open("organisation_mappings.csv", mode='r') as csvfile:
-    ORGAINZATION_DICT = {}
-    reader = csv.DictReader(csvfile)
-    for row in reader:
-         ORGAINZATION_DICT[row["Original ID"]] = row["Override ID"]
+log = logging.getLogger(__name__)
+
+
+
+ORGAINZATION_DICT = {}
+try:
+    with open("organisation_mappings.csv", mode='r') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            ORGAINZATION_DICT[row["Original ID"]] = row["Override ID"]
+except:
+    log.warning("Failed to load CSV")
 
 from ckanext.datapress_harvester.util import (
     get_package_extra_val,
@@ -28,7 +32,6 @@ from ckanext.datapress_harvester.util import (
     add_default_extras,
     add_existing_extras
 )
-log = logging.getLogger(__name__)
 
 # In ckan, we should be able to add a license list such as
 # https://licenses.opendefinition.org/licenses/groups/all.json by setting the ckan.licenses_group_url field in the config, but that doesn't seem to be
@@ -235,6 +238,7 @@ class SODAHarvester(HarvesterBase):
         return True
 
     def _maybe_create_organisation(self, base_context, org_name, org_link):
+
         org_id = sanitise(org_name)
 
         mapped_org_id = ORGAINZATION_DICT.get(org_id, org_id)
