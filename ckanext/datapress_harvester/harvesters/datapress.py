@@ -19,12 +19,22 @@ from ckanext.datapress_harvester.util import (
 )
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject
+import csv
 
 
 log = logging.getLogger(__name__)
 
 EXTRA_PKG_FIELDS = ['london_smallest_geography', 'update_frequency']
 EXTRA_RESOURCE_FIELDS = ['temporal_coverage_from', 'temporal_coverage_to']
+
+ORGAINZATION_DICT = {}
+try:
+    with open("organisation_mappings.csv", mode='r') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            ORGAINZATION_DICT[row["Original ID"]] = row["Override ID"]
+except:
+    log.warning("Failed to load CSV")
 
 
 class DataPressHarvester(HarvesterBase):
@@ -635,6 +645,12 @@ class DataPressHarvester(HarvesterBase):
                         log.info("Organization %s is not available", remote_org)
                         if remote_orgs == "create" and "organization" in package_dict:
                             org = package_dict["organization"]
+                            mapped_org_name = ORGAINZATION_DICT.get(org["name"], "")
+                            
+                            if mapped_org_name != "":
+                                org["title"]= mapped_org_name
+                                org["name"]= mapped_org_name
+                            
                             for key in [
                                 "packages",
                                 "created",
