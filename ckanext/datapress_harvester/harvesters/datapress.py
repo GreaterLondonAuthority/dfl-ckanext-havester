@@ -301,17 +301,19 @@ class DataPressHarvester(HarvesterBase):
         response.raise_for_status()
         response_dict = response.json()
 
-        return {
-            item["id"]: {
-                k: v
-                for k, v in {
-                    "london_smallest_geography": item.get("london_smallest_geography"),
-                    "update_frequency": item.get("update_frequency"),
-                }.items()
-                if v
-            }
-            for item in response_dict
-        }
+        lookup = {}
+
+        extra_pkg_fields = ['london_smallest_geography', 'update_frequency']
+
+        for package_dict in response_dict:
+            pkg_id = package_dict['id']
+            pkg_extra_fields = {}
+            for field in extra_pkg_fields:
+                if field in package_dict and package_dict[field] != '':
+                    pkg_extra_fields[field] = package_dict[field]
+                    lookup[pkg_id] = pkg_extra_fields
+
+        return lookup
 
     def _fetch_packages(self, remote_datapress_base_url):
         """Fetch the current package list from DataPress"""
