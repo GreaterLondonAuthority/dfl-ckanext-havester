@@ -216,7 +216,7 @@ class DataPressHarvester(HarvesterBase):
         try:
             pkg_dicts = self._fetch_packages(remote_datapress_base_url)
         except ContentFetchError as e:
-            log.info("Fetching datasets gave an error: %s", e)
+            log.exception("Fetching datasets gave an error")
             self._save_gather_error(
                 "Unable to fetch datasets from DataPress:%s url:%s"
                 % (e, remote_datapress_base_url),
@@ -289,6 +289,7 @@ class DataPressHarvester(HarvesterBase):
 
             return object_ids
         except Exception as e:
+            log.exception("Exception during gather_stage")
             self._save_gather_error("%r" % e.message, harvest_job)
 
     def _fetch_datapress_extra_fields(self, remote_datapress_base_url, request_headers):
@@ -386,6 +387,8 @@ class DataPressHarvester(HarvesterBase):
 
         # Tags must be alphanumeric
         for i, tag in enumerate(package_dict["tags"]):
+            #breakpoint()
+            # NOTE THIS RAISES AN EXCEPTION FORMAT should be {'tags': [{'name': 'tagname'}]}
             package_dict["tags"][i]["name"] = re.sub(
                 "[^a-zA-Z0-9 \-_.]", "", tag["name"]
             )
@@ -728,6 +731,8 @@ class DataPressHarvester(HarvesterBase):
 
             return result
         except ValidationError as e:
+            log.exception("ValidationError during Import")
+
             self._save_object_error(
                 "Invalid package with GUID %s: %r"
                 % (harvest_object.guid, e.error_dict),
@@ -735,6 +740,7 @@ class DataPressHarvester(HarvesterBase):
                 "Import",
             )
         except Exception as e:
+            log.exception("Exception during Import")
             self._save_object_error("%s" % e, harvest_object, "Import")
 
 
