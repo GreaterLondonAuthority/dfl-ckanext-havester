@@ -401,13 +401,11 @@ class DataPressHarvester(HarvesterBase):
             if package_dict[key] is None:
                 del package_dict[key]
 
-        # Tags must be alphanumeric
-        for i, tag in enumerate(package_dict["tags"]):
-            #breakpoint()
-            # NOTE THIS RAISES AN EXCEPTION FORMAT should be {'tags': [{'name': 'tagname'}]}
-            package_dict["tags"][i]["name"] = re.sub(
-                "[^a-zA-Z0-9 \-_.]", "", tag["name"]
-            )
+        def fixup_tag(tag):
+            new_tag = re.sub("[^a-zA-Z0-9 \-_.]", "", tag)
+            return {'name': new_tag}
+
+        package_dict["tags"] = list(map(fixup_tag, package_dict["tags"]))
 
         # Some emails need cleaning up. (I think CKAN is actually too strict
         # here, and rejects valid emails. You're allowed some pretty weird
