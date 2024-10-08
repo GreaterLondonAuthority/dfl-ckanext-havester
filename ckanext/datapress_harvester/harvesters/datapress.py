@@ -23,6 +23,9 @@ from ckanext.harvest.model import HarvestObject
 
 log = logging.getLogger(__name__)
 
+EXTRA_PKG_FIELDS = ['london_smallest_geography', 'update_frequency']
+EXTRA_RESOURCE_FIELDS = ['temporal_coverage_from', 'temporal_coverage_to']
+
 
 class DataPressHarvester(HarvesterBase):
     """
@@ -159,21 +162,14 @@ class DataPressHarvester(HarvesterBase):
         """
         unprocessed_dataset_dict = json.loads(harvest_object.content)
 
-        if unprocessed_dataset_dict.get("london_smallest_geography"):
-            package_dict["extras"] += [
-                {
-                    "key": "london_smallest_geography",
-                    "value": unprocessed_dataset_dict["london_smallest_geography"],
-                }
-            ]
-
-        if unprocessed_dataset_dict.get("update_frequency"):
-            package_dict["extras"] += [
-                {
-                    "key": "update_frequency",
-                    "value": unprocessed_dataset_dict["update_frequency"],
-                }
-            ]
+        for field in EXTRA_PKG_FIELDS:
+            if unprocessed_dataset_dict.get(field):
+                package_dict["extras"] += [
+                    {
+                        "key": field,
+                        "value": unprocessed_dataset_dict[field],
+                    }
+                ]
 
         # Update modified date so package is updated in database
         # (see _create_or_update_package() in harvester plugin)
@@ -216,7 +212,7 @@ class DataPressHarvester(HarvesterBase):
         try:
             pkg_dicts = self._fetch_packages(remote_datapress_base_url)
         except ContentFetchError as e:
-            log.info("Fetching datasets gave an error: %s", e)
+            log.exception("Fetching datasets gave an error")
             self._save_gather_error(
                 "Unable to fetch datasets from DataPress:%s url:%s"
                 % (e, remote_datapress_base_url),
@@ -289,6 +285,7 @@ class DataPressHarvester(HarvesterBase):
 
             return object_ids
         except Exception as e:
+            log.exception("Exception during gather_stage")
             self._save_gather_error("%r" % e.message, harvest_job)
 
     def _fetch_datapress_extra_fields(self, remote_datapress_base_url, request_headers):
@@ -300,17 +297,31 @@ class DataPressHarvester(HarvesterBase):
         response.raise_for_status()
         response_dict = response.json()
 
-        return {
-            item["id"]: {
-                k: v
-                for k, v in {
-                    "london_smallest_geography": item.get("london_smallest_geography"),
-                    "update_frequency": item.get("update_frequency"),
-                }.items()
-                if v
-            }
-            for item in response_dict
-        }
+        lookup = {}
+
+        def has_value(v):
+            return v != None or v != ''
+
+        for package_dict in response_dict:
+            pkg_id = package_dict['id']
+            pkg_extra_fields = {}
+            for field in EXTRA_PKG_FIELDS:
+                if field in package_dict and has_value(package_dict[field]):
+                    pkg_extra_fields[field] = package_dict[field]
+                    lookup[pkg_id] = pkg_extra_fields
+
+            resources_extras = {}
+            for res_id, res_obj in package_dict.get('resources',[]).items():
+                resource_extra_fields = {}
+                for field in EXTRA_RESOURCE_FIELDS:
+                    if field in res_obj and has_value(res_obj[field]):
+                        resource_extra_fields[field] = res_obj[field]
+                if resource_extra_fields:
+                    resources_extras[res_id] = resource_extra_fields
+            package_dict['resources'] = resources_extras
+            lookup[pkg_id] = package_dict
+        
+        return lookup
 
     def _fetch_packages(self, remote_datapress_base_url):
         """Fetch the current package list from DataPress"""
@@ -346,8 +357,14 @@ class DataPressHarvester(HarvesterBase):
 
         for dataset_dict in results:
             extra_fields = self.extra_fields_lookup.get(dataset_dict["id"], {})
-            dataset_dict.update(extra_fields)
+            extra_resource_fields = extra_fields.pop('resources',[])
+            for resource_obj in dataset_dict.get('resources',[]):
+                res_id = resource_obj['id']
+                if res_id in extra_resource_fields:
+                    resource_obj.update(extra_resource_fields[res_id])
 
+            dataset_dict.update(extra_fields)
+        
         return results
 
     def fetch_stage(self, harvest_object):
@@ -384,11 +401,11 @@ class DataPressHarvester(HarvesterBase):
             if package_dict[key] is None:
                 del package_dict[key]
 
-        # Tags must be alphanumeric
-        for i, tag in enumerate(package_dict["tags"]):
-            package_dict["tags"][i]["name"] = re.sub(
-                "[^a-zA-Z0-9 \-_.]", "", tag["name"]
-            )
+        def fixup_tag(tag):
+            new_tag = re.sub("[^a-zA-Z0-9 \-_.]", "", tag)
+            return {'name': new_tag}
+
+        package_dict["tags"] = list(map(fixup_tag, package_dict["tags"]))
 
         # Some emails need cleaning up. (I think CKAN is actually too strict
         # here, and rejects valid emails. You're allowed some pretty weird
@@ -721,13 +738,18 @@ class DataPressHarvester(HarvesterBase):
                 # key.
                 resource.pop("revision_id", None)
 
-            package_dict = self.modify_package_dict(package_dict, harvest_object)
+                # if "extras" not in resource:
+                #     resource["extras"] = []
+
+            package_dict_form = self.modify_package_dict(package_dict, harvest_object)
             result = self._create_or_update_package(
                 package_dict, harvest_object, package_dict_form="package_show"
             )
 
             return result
         except ValidationError as e:
+            log.exception("ValidationError during Import")
+
             self._save_object_error(
                 "Invalid package with GUID %s: %r"
                 % (harvest_object.guid, e.error_dict),
@@ -735,6 +757,7 @@ class DataPressHarvester(HarvesterBase):
                 "Import",
             )
         except Exception as e:
+            log.exception("Exception during Import")
             self._save_object_error("%s" % e, harvest_object, "Import")
 
 
