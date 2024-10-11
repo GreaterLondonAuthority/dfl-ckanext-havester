@@ -19,6 +19,7 @@ from ckanext.datapress_harvester.util import (
 )
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject
+import csv
 
 
 log = logging.getLogger(__name__)
@@ -26,7 +27,24 @@ log = logging.getLogger(__name__)
 EXTRA_PKG_FIELDS = ['london_smallest_geography', 'update_frequency']
 EXTRA_RESOURCE_FIELDS = ['temporal_coverage_from', 'temporal_coverage_to']
 
+PROVIDER_ORG_MAPPINGS = {}
+try:
+    with open("organisation_mappings.csv", mode='r', encoding='utf-8-sig') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            provider_id = row["Provider"]
+            original_id = row["Original ID"]
+            if provider_id not in PROVIDER_ORG_MAPPINGS:
+                PROVIDER_ORG_MAPPINGS[provider_id] = {}
+            if original_id not in PROVIDER_ORG_MAPPINGS[provider_id]:
+                PROVIDER_ORG_MAPPINGS[provider_id][original_id] = {}
+                
+            PROVIDER_ORG_MAPPINGS[provider_id][original_id]['name'] = row["Override ID"]
+            PROVIDER_ORG_MAPPINGS[provider_id][original_id]['title'] = row["Override Title"]                        
+except BaseException as ex:    
+    log.info(f"No organisation_mappings.csv file was provided to canonicalise organisation names {ex}")
 
+    
 class DataPressHarvester(HarvesterBase):
     """
     A Harvester for DataPress instances.
@@ -604,15 +622,15 @@ class DataPressHarvester(HarvesterBase):
                             )
 
                 package_dict["groups"] = validated_groups
-
+            
             # Local harvest source organization
             source_dataset = get_action("package_show")(
                 base_context.copy(), {"id": harvest_object.source.id}
             )
             local_org = source_dataset.get("owner_org")
 
-            remote_orgs = self.config.get("remote_orgs", None)
-
+            remote_orgs = self.config.get("remote_orgs", None)                       
+            
             if remote_orgs not in ("only_local", "create"):
                 # Assign dataset to the source organization
                 package_dict["owner_org"] = local_org
@@ -632,9 +650,17 @@ class DataPressHarvester(HarvesterBase):
                         )
                         validated_org = org["id"]
                     except NotFound:
-                        log.info("Organization %s is not available", remote_org)
+                        log.info("Organization %s is not available", remote_org)                        
                         if remote_orgs == "create" and "organization" in package_dict:
+
+                            source_name = get_action('harvest_source_show')(base_context,{'id':harvest_object.source.id}).get('name')
                             org = package_dict["organization"]
+                            mapped_org = PROVIDER_ORG_MAPPINGS.get(source_name,{}).get(org["name"])
+
+                            if mapped_org:                                
+                                org["title"] = mapped_org.get('title') or mapped_org['name']
+                                org["name"]= mapped_org['name']
+                            
                             for key in [
                                 "packages",
                                 "created",
