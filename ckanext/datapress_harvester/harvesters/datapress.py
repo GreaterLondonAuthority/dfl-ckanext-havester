@@ -18,34 +18,14 @@ from ckanext.datapress_harvester.util import (
     get_harvested_dataset_ids,
 )
 from ckanext.harvest.harvesters import HarvesterBase
+from mixins.OrganizationMixin import CkanHarvesterMixin
 from ckanext.harvest.model import HarvestObject
-import csv
-
-
 log = logging.getLogger(__name__)
 
 EXTRA_PKG_FIELDS = ['london_smallest_geography', 'update_frequency']
 EXTRA_RESOURCE_FIELDS = ['temporal_coverage_from', 'temporal_coverage_to']
 
-PROVIDER_ORG_MAPPINGS = {}
-try:
-    with open("organisation_mappings.csv", mode='r', encoding='utf-8-sig') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            provider_id = row["Provider"]
-            original_id = row["Original ID"]
-            if provider_id not in PROVIDER_ORG_MAPPINGS:
-                PROVIDER_ORG_MAPPINGS[provider_id] = {}
-            if original_id not in PROVIDER_ORG_MAPPINGS[provider_id]:
-                PROVIDER_ORG_MAPPINGS[provider_id][original_id] = {}
-                
-            PROVIDER_ORG_MAPPINGS[provider_id][original_id]['name'] = row["Override ID"]
-            PROVIDER_ORG_MAPPINGS[provider_id][original_id]['title'] = row["Override Title"]                        
-except BaseException as ex:    
-    log.info(f"No organisation_mappings.csv file was provided to canonicalise organisation names {ex}")
-
-    
-class DataPressHarvester(HarvesterBase):
+class DataPressHarvester(HarvesterBase, CkanHarvesterMixin):
     """
     A Harvester for DataPress instances.
 
@@ -627,56 +607,24 @@ class DataPressHarvester(HarvesterBase):
             source_dataset = get_action("package_show")(
                 base_context.copy(), {"id": harvest_object.source.id}
             )
-            local_org = source_dataset.get("owner_org")
 
+            local_org = source_dataset.get("owner_org")
             remote_orgs = self.config.get("remote_orgs", None)                       
-            
+            validated_org = None
+
             if remote_orgs not in ("only_local", "create"):
                 # Assign dataset to the source organization
-                package_dict["owner_org"] = local_org
+                validated_org = self.get_mapped_organization(base_context, harvest_object, local_org, local_org, package_dict)
+                package_dict["owner_org"] = validated_org
             else:
                 if "owner_org" not in package_dict:
                     package_dict["owner_org"] = None
 
                 # check if remote org exist locally, otherwise remove
-                validated_org = None
                 remote_org = package_dict["owner_org"]
 
                 if remote_org:
-                    try:
-                        data_dict = {"id": remote_org}
-                        org = get_action("organization_show")(
-                            base_context.copy(), data_dict
-                        )
-                        validated_org = org["id"]
-                    except NotFound:
-                        log.info("Organization %s is not available", remote_org)                        
-                        if remote_orgs == "create" and "organization" in package_dict:
-
-                            source_name = get_action('harvest_source_show')(base_context,{'id':harvest_object.source.id}).get('name')
-                            org = package_dict["organization"]
-                            mapped_org = PROVIDER_ORG_MAPPINGS.get(source_name,{}).get(org["name"])
-
-                            if mapped_org:                                
-                                org["title"] = mapped_org.get('title') or mapped_org['name']
-                                org["name"]= mapped_org['name']
-                            
-                            for key in [
-                                "packages",
-                                "created",
-                                "users",
-                                "groups",
-                                "tags",
-                                "extras",
-                                "display_name",
-                                "type",
-                            ]:
-                                org.pop(key, None)
-                            get_action("organization_create")(base_context.copy(), org)
-                            log.info(
-                                "Organization %s has been newly created", remote_org
-                            )
-                            validated_org = org["id"]
+                    validated_org = self.get_mapped_organization(base_context, harvest_object, local_org, remote_org, package_dict)
 
                 package_dict["owner_org"] = validated_org or local_org
 

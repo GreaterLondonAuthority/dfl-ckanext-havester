@@ -19,7 +19,7 @@ from ckanext.datapress_harvester.util import (
     add_default_extras,
     add_existing_extras,
 )
-
+from mixins.OrganizationMixin import CkanHarvesterMixin
 log = logging.getLogger(__name__)
 
 REDBRIDGE_API_URL = "http://data.redbridge.gov.uk/api/"
@@ -46,7 +46,7 @@ def _generate_resource(package_id, dataset, is_csv):
     }
 
 
-class RedbridgeHarvester(HarvesterBase):
+class RedbridgeHarvester(HarvesterBase, CkanHarvesterMixin):
     def info(self):
         return {
             "name": "redbridge",
@@ -210,7 +210,11 @@ class RedbridgeHarvester(HarvesterBase):
             harvest_source = toolkit.get_action("package_show")(
                 base_context.copy(), {"id": harvest_object.source.id}
             )
-            package_dict["owner_org"] = harvest_source.get("owner_org")
+            
+            org = harvest_source.get("owner_org")
+            remote_orgs = self.config.get("remote_orgs", None)   
+            mapped_org = self.get_mapped_organization(base_context, harvest_object, org["name"], remote_orgs, package_dict)
+            package_dict["owner_org"] = mapped_org
 
             add_default_keys(package_dict)
 

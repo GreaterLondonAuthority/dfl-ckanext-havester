@@ -308,7 +308,11 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
             harvest_source = tk.get_action("package_show")(
                 base_context.copy(), {"id": harvest_object.source.id}
             )
-            package_dict["owner_org"] = harvest_source.get("owner_org")
+
+            org = harvest_source.get("owner_org")
+            remote_orgs = self.config.get("remote_orgs", None)   
+            mapped_org = self.get_mapped_organization(base_context, harvest_object, org["name"], remote_orgs, package_dict)
+            package_dict["owner_org"] = mapped_org
 
             # Set some default keys so CKAN does not report them as being changed later.
             default_keys = [
