@@ -8,20 +8,9 @@ import ckan.plugins.toolkit as tk
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject
 from ckan.logic import NotFound 
-import csv
+from mixins.harvester_mixin import DFLHarvesterMixin
 
 log = logging.getLogger(__name__)
-
-
-
-ORGAINZATION_DICT = {}
-try:
-    with open("organisation_mappings.csv", mode='r') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            ORGAINZATION_DICT[row["Original ID"]] = row["Override ID"]
-except:
-    log.warning("Failed to load CSV")
 
 from ckanext.datapress_harvester.util import (
     get_package_extra_val,
@@ -72,7 +61,7 @@ def to_iso_date(opendata_date_str):
     dt = datetime.datetime.strptime(opendata_date_str, "%Y-%m-%dT%H:%M:%S.%fZ")
     return dt.isoformat()
 
-class SODAHarvester(HarvesterBase):
+class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
     url = None
     domain = None
     app_token = None
@@ -237,33 +226,6 @@ class SODAHarvester(HarvesterBase):
     def fetch_stage(self, harvest_object):
         return True
 
-    def _maybe_create_organisation(self, base_context, org_name, org_link):
-
-        org_id = sanitise(org_name)
-
-        mapped_org_id = ORGAINZATION_DICT.get(org_id, org_id)
-
-        try:
-            data_dict = {"id": mapped_org_id}
-            org = tk.get_action("organization_show")(
-                base_context.copy(), data_dict
-            )
-            return org["id"]
-        except NotFound:
-            org = {"title": org_name,
-                    "id": org_id,
-                    "name": org_id,
-                    "state": "active"}
-            if org_link is not None:
-                org = {**org,
-                        "extras": [{"key": "Website",
-                                    "value": org_link}]}
-            tk.get_action("organization_create")(base_context.copy(), org)
-            log.info(
-                "Organization %s has been newly created", org_name
-            )
-            return org["id"]
-
     def _delete_dataset(self, base_context, pkg_dict):
         pkg_id = pkg_dict["id"]
         log.info(f"Deleting dataset {pkg_id}")
@@ -297,16 +259,15 @@ class SODAHarvester(HarvesterBase):
                 log.info(f"Dataset \"{imported_dataset['name']}\" does not currently exist. Importing...")
                 try:
                     package_dict = self._dataset_to_pkgdict(imported_dataset)
+                    remote_orgs = self.config.get("remote_orgs", None)   
                     # Assuming that organisations never change - if they do we need to do this for update also
                     if self.create_organisations and package_dict["org_name"] is not None:
-                        owner_org = self._maybe_create_organisation(base_context,
-                                                                    package_dict.get("org_name"),
-                                                                    package_dict.get("org_link"))
+                        owner_org = self.get_mapped_organization(base_context, harvest_object, package_dict.get("org_name"), remote_orgs, package_dict, package_dict.get("org_link"))
                     else:
                         harvest_source = tk.get_action("package_show")(
                             base_context.copy(), {"id": harvest_object.source.id}
                         )
-                        owner_org = harvest_source['organization']['name']
+                        owner_org = self.get_mapped_organization(base_context, harvest_object, harvest_source['organization']['name'], remote_orgs, package_dict, None)
 
                     package_dict["owner_org"] = owner_org
 
