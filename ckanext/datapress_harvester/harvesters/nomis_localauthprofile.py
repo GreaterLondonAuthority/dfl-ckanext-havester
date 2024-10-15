@@ -11,7 +11,7 @@ import ckan.plugins.toolkit as tk
 
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject
-
+from mixins.harvester_mixin import DFLHarvesterMixin
 from ckanext.datapress_harvester.util import (
     NOMIS_BOROUGHS,
     NOMIS_LAP_SELECT_URL,
@@ -59,7 +59,7 @@ def _dataset_to_pkgdict(dataset):
     }
 
 
-class NomisLocalAuthorityProfileScraper(HarvesterBase):
+class NomisLocalAuthorityProfileScraper(HarvesterBase, DFLHarvesterMixin):
     def info(self):
         return {
             "name": "nomis-localauthprofile",
@@ -311,7 +311,7 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase):
 
             org = harvest_source.get("owner_org")
             remote_orgs = self.config.get("remote_orgs", None)   
-            mapped_org = self.get_mapped_organization(base_context, harvest_object, org["name"], remote_orgs, package_dict)
+            mapped_org = self.get_mapped_organization(base_context, harvest_object, org["name"], remote_orgs, package_dict, None)
             package_dict["owner_org"] = mapped_org
 
             # Set some default keys so CKAN does not report them as being changed later.

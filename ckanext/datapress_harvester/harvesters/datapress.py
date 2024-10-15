@@ -18,14 +18,14 @@ from ckanext.datapress_harvester.util import (
     get_harvested_dataset_ids,
 )
 from ckanext.harvest.harvesters import HarvesterBase
-from mixins.OrganizationMixin import CkanHarvesterMixin
+from mixins.harvester_mixin import DFLHarvesterMixin
 from ckanext.harvest.model import HarvestObject
 log = logging.getLogger(__name__)
 
 EXTRA_PKG_FIELDS = ['london_smallest_geography', 'update_frequency']
 EXTRA_RESOURCE_FIELDS = ['temporal_coverage_from', 'temporal_coverage_to']
 
-class DataPressHarvester(HarvesterBase, CkanHarvesterMixin):
+class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
     """
     A Harvester for DataPress instances.
 
@@ -614,7 +614,7 @@ class DataPressHarvester(HarvesterBase, CkanHarvesterMixin):
 
             if remote_orgs not in ("only_local", "create"):
                 # Assign dataset to the source organization
-                validated_org = self.get_mapped_organization(base_context, harvest_object, local_org, local_org, package_dict)
+                validated_org = self.get_mapped_organization(base_context, harvest_object, local_org, local_org, package_dict, None)
                 package_dict["owner_org"] = validated_org
             else:
                 if "owner_org" not in package_dict:
@@ -624,7 +624,7 @@ class DataPressHarvester(HarvesterBase, CkanHarvesterMixin):
                 remote_org = package_dict["owner_org"]
 
                 if remote_org:
-                    validated_org = self.get_mapped_organization(base_context, harvest_object, local_org, remote_org, package_dict)
+                    validated_org = self.get_mapped_organization(base_context, harvest_object, local_org, remote_org, package_dict, None)
 
                 package_dict["owner_org"] = validated_org or local_org
 

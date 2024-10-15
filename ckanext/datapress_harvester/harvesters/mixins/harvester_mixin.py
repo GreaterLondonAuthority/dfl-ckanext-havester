@@ -22,8 +22,8 @@ try:
 except BaseException as ex:    
     log.info(f"No organisation_mappings.csv file was provided to canonicalise organisation names {ex}")
     
-class CkanHarvesterMixin:
-    def get_mapped_organization(self, base_context, harvest_object, organization, remote_orgs, package_dict):
+class DFLHarvesterMixin:
+    def get_mapped_organization(self, base_context, harvest_object, organization, remote_orgs, package_dict, org_link):
 
         validated_org = None
 
@@ -58,6 +58,12 @@ class CkanHarvesterMixin:
                     "type",
                 ]:
                     org.pop(key, None)
+
+                if org_link is not None:
+                    org = {**org,
+                            "extras": [{"key": "Website",
+                                        "value": org_link}]}
+                
                 get_action("organization_create")(base_context.copy(), org)
                 log.info(
                     "Organization %s has been newly created", organization
