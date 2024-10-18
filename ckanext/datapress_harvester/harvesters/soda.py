@@ -8,7 +8,7 @@ import ckan.plugins.toolkit as tk
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject
 from ckan.logic import NotFound 
-from mixins.harvester_mixin import DFLHarvesterMixin
+from .mixins import DFLHarvesterMixin
 
 log = logging.getLogger(__name__)
 

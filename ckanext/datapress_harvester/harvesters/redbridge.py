@@ -19,7 +19,7 @@ from ckanext.datapress_harvester.util import (
     add_default_extras,
     add_existing_extras,
 )
-from mixins.harvester_mixin import DFLHarvesterMixin
+from .mixins import DFLHarvesterMixin
 log = logging.getLogger(__name__)
 
 REDBRIDGE_API_URL = "http://data.redbridge.gov.uk/api/"

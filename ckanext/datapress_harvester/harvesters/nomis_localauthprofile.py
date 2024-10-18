@@ -11,7 +11,7 @@ import ckan.plugins.toolkit as tk
 
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject
-from mixins.harvester_mixin import DFLHarvesterMixin
+from .mixins import DFLHarvesterMixin
 from ckanext.datapress_harvester.util import (
     NOMIS_BOROUGHS,
     NOMIS_LAP_SELECT_URL,

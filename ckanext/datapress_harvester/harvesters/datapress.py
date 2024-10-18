@@ -18,7 +18,7 @@ from ckanext.datapress_harvester.util import (
     get_harvested_dataset_ids,
 )
 from ckanext.harvest.harvesters import HarvesterBase
-from mixins.harvester_mixin import DFLHarvesterMixin
+from .mixins import DFLHarvesterMixin
 from ckanext.harvest.model import HarvestObject
 log = logging.getLogger(__name__)
 
