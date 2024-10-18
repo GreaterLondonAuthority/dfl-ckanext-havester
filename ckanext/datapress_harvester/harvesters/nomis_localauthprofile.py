@@ -264,6 +264,7 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase, DFLHarvesterMixin):
                 object_ids.append(obj.id)
             return object_ids
         except Exception as e:
+            log.exception("Unexpected exception during gather")
             self._save_gather_error("%r" % e.message, harvest_job)
 
     def fetch_stage(self, harvest_object):
@@ -311,7 +312,7 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase, DFLHarvesterMixin):
 
             org = harvest_source.get("owner_org")
             remote_orgs = self.config.get("remote_orgs", None)   
-            mapped_org = self.get_mapped_organization(base_context, harvest_object, org["name"], remote_orgs, package_dict, None)
+            mapped_org = self.get_mapped_organization(base_context, harvest_object, org, remote_orgs, package_dict, None)
             package_dict["owner_org"] = mapped_org
 
             # Set some default keys so CKAN does not report them as being changed later.
@@ -351,4 +352,5 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase, DFLHarvesterMixin):
 
             return result
         except Exception as e:
+            log.exception("Unexpected error during import")
             self._save_object_error("%s" % e, harvest_object, "Import")
