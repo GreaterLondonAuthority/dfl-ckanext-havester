@@ -169,6 +169,7 @@ class RedbridgeHarvester(HarvesterBase, DFLHarvesterMixin):
                 object_ids.append(obj.id)
             return object_ids
         except Exception as e:
+            log.exception('Unexpected error during gather')
             self._save_gather_error("%r" % e.message, harvest_job)
 
     def fetch_stage(self, harvest_object):
@@ -201,6 +202,7 @@ class RedbridgeHarvester(HarvesterBase, DFLHarvesterMixin):
                 )
                 return True
         except Exception as e:
+            log.exception('Unexpected error during import')
             self._save_object_error(
                 "Failed to parse harvest object: %s" % e, harvest_object, "Import"
             )
@@ -232,4 +234,5 @@ class RedbridgeHarvester(HarvesterBase, DFLHarvesterMixin):
 
             return result
         except Exception as e:
+            log.exception('Unexpected error')
             self._save_object_error("%s" % e, harvest_object, "Import")
