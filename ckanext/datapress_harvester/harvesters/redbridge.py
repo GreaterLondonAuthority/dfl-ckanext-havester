@@ -218,7 +218,7 @@ class RedbridgeHarvester(HarvesterBase, DFLHarvesterMixin):
             config = self.config or {}
             
             remote_orgs = config.get("remote_orgs", None)   
-            mapped_org = self.get_mapped_organization(base_context, harvest_object, org["name"], remote_orgs, package_dict, None)
+            mapped_org = self.get_mapped_organization(base_context, harvest_object, org, remote_orgs, package_dict, None)
             package_dict["owner_org"] = mapped_org
 
             add_default_keys(package_dict)
