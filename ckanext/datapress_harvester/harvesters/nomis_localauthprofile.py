@@ -264,6 +264,7 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase, DFLHarvesterMixin):
                 object_ids.append(obj.id)
             return object_ids
         except Exception as e:
+            log.exception("Unexpected exception during gather")
             self._save_gather_error("%r" % e.message, harvest_job)
 
     def fetch_stage(self, harvest_object):
@@ -351,4 +352,5 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase, DFLHarvesterMixin):
 
             return result
         except Exception as e:
+            log.exception("Unexpected error during import")
             self._save_object_error("%s" % e, harvest_object, "Import")
