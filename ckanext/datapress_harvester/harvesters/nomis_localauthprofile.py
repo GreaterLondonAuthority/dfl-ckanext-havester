@@ -312,7 +312,7 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase, DFLHarvesterMixin):
 
             org = harvest_source.get("owner_org")
             remote_orgs = self.config.get("remote_orgs", None)   
-            mapped_org = self.get_mapped_organization(base_context, harvest_object, org["name"], remote_orgs, package_dict, None)
+            mapped_org = self.get_mapped_organization(base_context, harvest_object, org, remote_orgs, package_dict, None)
             package_dict["owner_org"] = mapped_org
 
             # Set some default keys so CKAN does not report them as being changed later.
