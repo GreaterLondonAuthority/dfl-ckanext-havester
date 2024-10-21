@@ -24,10 +24,9 @@ except BaseException as ex:
     
 class DFLHarvesterMixin:
     def get_mapped_organization(self, base_context, harvest_object, organization, remote_orgs, package_dict, org_link):
-
         validated_org = None
 
-        source_name = get_action('harvest_source_show')(base_context,{'id':harvest_object.source.id}).get('name')
+        source_name = get_action('harvest_source_show')(base_context.copy(),{'id':harvest_object.source.id}).get('name')
         mapped_org = PROVIDER_ORG_MAPPINGS.get(source_name,{}).get(organization)
 
         try:
