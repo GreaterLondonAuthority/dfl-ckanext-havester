@@ -35,16 +35,17 @@ class DFLHarvesterMixin:
                 base_context.copy(), data_dict
             )
             validated_org = org["id"]
+            log.info(f'Org {validated_org} exists')
             return validated_org
         except NotFound:
-            log.info("Organization %s is not available", organization)                        
-            if remote_orgs == "create" and "organization" in package_dict:
+            log.info("Organization %s is not available", organization)
 
-                org = package_dict["organization"]
+            if remote_orgs == "create": 
+                org = package_dict.get("organization") or {'name': organization, 'title': package_dict.get('org_name', organization)}
 
-                if mapped_org:                                
+                if mapped_org:
                     org["title"] = mapped_org.get('title') or mapped_org['name']
-                    org["name"]= mapped_org['name']
+                    org["name"] = mapped_org['name']
                 
                 for key in [
                     "packages",
@@ -62,11 +63,12 @@ class DFLHarvesterMixin:
                     org = {**org,
                             "extras": [{"key": "Website",
                                         "value": org_link}]}
-                
-                get_action("organization_create")(base_context.copy(), org)
+
+                log.info(f'Attempt to create {org["name"]}')
+                new_org = get_action("organization_create")(base_context.copy(), org)
                 log.info(
                     "Organization %s has been newly created", organization
                 )
-                validated_org = org["id"]
+                validated_org = new_org["id"]
 
         return validated_org
