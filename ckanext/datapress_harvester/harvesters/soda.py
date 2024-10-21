@@ -196,7 +196,9 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
                 obj.save()
                 object_ids.append(obj.id)
         except Exception as e:
-            self._save_gather_error("Error gathering dataset updates: %r" % e.message, harvest_job)
+            error_msg = "Error gathering dataset updates: %r" % e.message
+            log.exception(error_msg)
+            self._save_gather_error(error_msg, harvest_job)
         try:
             for pk_id in deleted_ids:
                 obj = HarvestObject(
@@ -209,7 +211,9 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
                 object_ids.append(obj.id)
             return object_ids
         except Exception as e:
-            self._save_gather_error("Error gathering datasets to delete: %r" % e.message, harvest_job)
+            error_msg = "Error gathering datasets to delete: %r" % e.message
+            log.exception(error_msg)
+            self._save_gather_error(error_msg, harvest_job)
 
 
     def _dataset_to_pkgdict(self, dataset):
@@ -235,6 +239,8 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
         return True
 
     def import_stage(self, harvest_object):
+        self._set_config(harvest_object.source)
+
         base_context = {
             "model": model,
             "session": model.Session,
@@ -251,23 +257,23 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
                     log.info("Successfully deleted")
                     return ok
                 except Exception as e:
-                    self._save_object_error("Failed to delete dataset: %s" % e,
-                                            harvest_object,
-                                            "Import")
+                    error_msg = "Failed to delete dataset: %s" % e
+                    log.exception(error_msg)
+
+                    self._save_object_error(error_msg, harvest_object, "Import")
                     return False
             case "create":
                 log.info(f"Dataset \"{imported_dataset['name']}\" does not currently exist. Importing...")
                 try:
                     package_dict = self._dataset_to_pkgdict(imported_dataset)
-                    remote_orgs = self.config.get("remote_orgs", None)   
                     # Assuming that organisations never change - if they do we need to do this for update also
                     if self.create_organisations and package_dict["org_name"] is not None:
-                        owner_org = self.get_mapped_organization(base_context, harvest_object, package_dict.get("org_name"), remote_orgs, package_dict, package_dict.get("org_link"))
+                        owner_org = self.get_mapped_organization(base_context, harvest_object, package_dict.get("org_name"), self.create_organisations, package_dict, package_dict.get("org_link"))
                     else:
                         harvest_source = tk.get_action("package_show")(
                             base_context.copy(), {"id": harvest_object.source.id}
                         )
-                        owner_org = self.get_mapped_organization(base_context, harvest_object, harvest_source['organization']['name'], remote_orgs, package_dict, None)
+                        owner_org = self.get_mapped_organization(base_context, harvest_object, harvest_source['organization']['name'], self.create_organisations, package_dict, None)
 
                     package_dict["owner_org"] = owner_org
 
@@ -283,7 +289,9 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
                                                             package_dict_form="package_show")
                     return result
                 except Exception as e:
-                    self._save_object_error("Error creating new dataset: %s" % e, harvest_object, "Import")
+                    error_msg = "Error creating new dataset: %s" % e
+                    log.exception(error_msg)
+                    self._save_object_error(error_msg, harvest_object, "Import")
 
             case "update":
                 try:
@@ -312,4 +320,6 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
                                                                 package_dict_form="package_show")
                         return result
                 except Exception as e:
-                    self._save_object_error("Error modifying existing dataset: %s" % e, harvest_object, "Import")
+                    error_msg = "Error modifying existing dataset: %s" % e
+                    log.exception(error_msg)
+                    self._save_object_error(error_msg, harvest_object, "Import")
