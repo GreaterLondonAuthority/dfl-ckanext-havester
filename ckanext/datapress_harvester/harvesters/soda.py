@@ -268,13 +268,16 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
                 try:
                     package_dict = self._dataset_to_pkgdict(imported_dataset)
                     # Assuming that organisations never change - if they do we need to do this for update also
-                    if self.create_organisations and package_dict["org_name"] is not None:
-                        owner_org = self.get_mapped_organization(base_context, harvest_object, package_dict.get("org_name"), self.config.get("remote_orgs"), package_dict, package_dict.get("org_link"))
+                    if self.create_organisations and package_dict.get("org_name") is not None:
+                        org_id = sanitise(package_dict.get("org_name"))
+                        owner_org = self.get_mapped_organization(base_context, harvest_object, org_id, self.config.get("remote_orgs"), package_dict, package_dict.get("org_link"))
                     else:
                         harvest_source = tk.get_action("package_show")(
                             base_context.copy(), {"id": harvest_object.source.id}
                         )
-                        owner_org = self.get_mapped_organization(base_context, harvest_object, harvest_source['organization']['name'], self.config.get("remote_orgs"), package_dict, None)
+                        source_org = harvest_source['organization']['name']
+                            
+                        owner_org = self.get_mapped_organization(base_context, harvest_object, source_org, self.config.get("remote_orgs"), package_dict, None)
 
                     package_dict["owner_org"] = owner_org
 
