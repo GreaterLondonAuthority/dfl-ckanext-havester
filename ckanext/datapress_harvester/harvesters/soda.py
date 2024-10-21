@@ -239,6 +239,8 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
         return True
 
     def import_stage(self, harvest_object):
+        self._set_config(harvest_object.source)
+
         base_context = {
             "model": model,
             "session": model.Session,
@@ -264,15 +266,14 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
                 log.info(f"Dataset \"{imported_dataset['name']}\" does not currently exist. Importing...")
                 try:
                     package_dict = self._dataset_to_pkgdict(imported_dataset)
-                    remote_orgs = self.config.get("remote_orgs", None)   
                     # Assuming that organisations never change - if they do we need to do this for update also
                     if self.create_organisations and package_dict["org_name"] is not None:
-                        owner_org = self.get_mapped_organization(base_context, harvest_object, package_dict.get("org_name"), remote_orgs, package_dict, package_dict.get("org_link"))
+                        owner_org = self.get_mapped_organization(base_context, harvest_object, package_dict.get("org_name"), self.create_organisations, package_dict, package_dict.get("org_link"))
                     else:
                         harvest_source = tk.get_action("package_show")(
                             base_context.copy(), {"id": harvest_object.source.id}
                         )
-                        owner_org = self.get_mapped_organization(base_context, harvest_object, harvest_source['organization']['name'], remote_orgs, package_dict, None)
+                        owner_org = self.get_mapped_organization(base_context, harvest_object, harvest_source['organization']['name'], self.create_organisations, package_dict, None)
 
                     package_dict["owner_org"] = owner_org
 
