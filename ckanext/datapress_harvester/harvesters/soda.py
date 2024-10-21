@@ -70,9 +70,9 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
     def _set_config(self, source):
         self.url = source.url.rstrip("/")
         self.domain = self.url.split("://")[1]
-        config = json.loads(source.config)
-        self.app_token = config["app_token"]
-        self.create_organisations = config.get("remote_orgs") == "create"
+        self.config = json.loads(source.config)
+        self.app_token = self.config["app_token"]
+        self.create_organisations = self.config.get("remote_orgs") == "create"
 
     def info(self):
         return {
@@ -269,12 +269,12 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
                     package_dict = self._dataset_to_pkgdict(imported_dataset)
                     # Assuming that organisations never change - if they do we need to do this for update also
                     if self.create_organisations and package_dict["org_name"] is not None:
-                        owner_org = self.get_mapped_organization(base_context, harvest_object, package_dict.get("org_name"), self.create_organisations, package_dict, package_dict.get("org_link"))
+                        owner_org = self.get_mapped_organization(base_context, harvest_object, package_dict.get("org_name"), self.config.get("remote_orgs"), package_dict, package_dict.get("org_link"))
                     else:
                         harvest_source = tk.get_action("package_show")(
                             base_context.copy(), {"id": harvest_object.source.id}
                         )
-                        owner_org = self.get_mapped_organization(base_context, harvest_object, harvest_source['organization']['name'], self.create_organisations, package_dict, None)
+                        owner_org = self.get_mapped_organization(base_context, harvest_object, harvest_source['organization']['name'], self.config.get("remote_orgs"), package_dict, None)
 
                     package_dict["owner_org"] = owner_org
 
