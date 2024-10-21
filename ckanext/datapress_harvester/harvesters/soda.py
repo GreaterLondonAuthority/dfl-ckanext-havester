@@ -146,6 +146,7 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
         md5 = hashlib.md5()
         content_hash = md5.update(str(pkg_dict).encode())
         content_hash = md5.hexdigest()
+        log.debug(f'Made entry for {ds_id}')
         return {**pkg_dict, "content_hash": content_hash}
 
     def gather_stage(self, harvest_job):
