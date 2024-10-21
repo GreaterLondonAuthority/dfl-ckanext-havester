@@ -10,8 +10,6 @@ from ckanext.harvest.model import HarvestObject
 from ckan.logic import NotFound 
 from .mixins import DFLHarvesterMixin
 
-log = logging.getLogger(__name__)
-
 from ckanext.datapress_harvester.util import (
     get_package_extra_val,
     upsert_package_extra,
@@ -21,6 +19,8 @@ from ckanext.datapress_harvester.util import (
     add_default_extras,
     add_existing_extras
 )
+
+log = logging.getLogger(__name__)
 
 # In ckan, we should be able to add a license list such as
 # https://licenses.opendefinition.org/licenses/groups/all.json by setting the ckan.licenses_group_url field in the config, but that doesn't seem to be
@@ -84,7 +84,7 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
 
     def validate_config(self, source_config):
         source_config_obj = json.loads(source_config)
-        if not "app_token" in source_config:
+        if "app_token" not in source_config:
             raise ValueError("No application token provided in the 'app_token' field")
         return source_config
 
@@ -172,7 +172,7 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
             start_index += batch_size
             log.info(f"Fetched {len(datasets)} out of {total_num_results} datasets")
 
-        log.info(f"Converting datasets into HarvestObjects")
+        log.info("Converting datasets into HarvestObjects")
 
         catalog_entries = [self._create_catalog_entry(d) for d in datasets]
 
