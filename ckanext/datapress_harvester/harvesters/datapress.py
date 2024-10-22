@@ -649,29 +649,33 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
                 package_dict["groups"] = validated_groups
             
             # Local harvest source organization
-            source_dataset = get_action("package_show")(
+            harvest_source = get_action("package_show")(
                 base_context.copy(), {"id": harvest_object.source.id}
             )
 
-            local_org = source_dataset.get("owner_org")
+            harvester_org = harvest_source.get("owner_org")
+
+            # canonicalise id to name
+            harvester_org = toolkit.get_action('organization_show')(data_dict={'id': harvester_org})['name']
+            
             remote_orgs = self.config.get("remote_orgs", None)                       
             validated_org = None
 
             if remote_orgs not in ("only_local", "create"):
                 # Assign dataset to the source organization
-                validated_org = self.get_mapped_organization(base_context, harvest_object, local_org, local_org, package_dict, None)
+                validated_org = self.get_mapped_organization(base_context, harvest_object, harvester_org, remote_orgs, package_dict, None)
                 package_dict["owner_org"] = validated_org
             else:
                 if "owner_org" not in package_dict:
                     package_dict["owner_org"] = None
 
                 # check if remote org exist locally, otherwise remove
-                remote_org = package_dict["owner_org"]
-
+                remote_org = package_dict.get("owner_org")
+                
                 if remote_org:
-                    validated_org = self.get_mapped_organization(base_context, harvest_object, local_org, remote_org, package_dict, None)
+                    validated_org = self.get_mapped_organization(base_context, harvest_object, remote_org, remote_orgs, package_dict, None)
 
-                package_dict["owner_org"] = validated_org or local_org
+                package_dict["owner_org"] = validated_org or harvester_org
 
             # Set default groups if needed
             default_groups = self.config.get("default_groups", [])
