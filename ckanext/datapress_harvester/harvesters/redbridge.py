@@ -242,9 +242,6 @@ class RedbridgeHarvester(HarvesterBase, DFLHarvesterMixin):
                         
             harvester_org = harvest_source.get("owner_org")
 
-            # canonicalise id to name
-            harvester_org = toolkit.get_action('organization_show')(base_context.copy(), data_dict={'id': harvester_org})['name']
-
             config = self.config or {}
             
             remote_orgs = config.get("remote_orgs", None)

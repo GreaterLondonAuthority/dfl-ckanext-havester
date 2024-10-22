@@ -22,15 +22,29 @@ try:
 except BaseException as ex:    
     log.info(f"No organisation_mappings.csv file was provided to canonicalise organisation names {ex}")
     
+# Makes an attempt to canonicalise a string from either an org id, or
+# an org name slug and canonicalises it into the org name for mapping,
+# though if there is no record of the organisation stored it will
+# return the input id.
+def canonicalise_org_to_name(base_context, org_name_or_id):
+    try:
+        org_name = get_action('organization_show')(base_context, data_dict={'id': org_name_or_id})['name']
+        return org_name
+    except NotFound:
+        return org_name_or_id
+    
 class DFLHarvesterMixin:
     def get_mapped_organization(self, base_context, harvest_object, organization, remote_orgs, package_dict, org_link):
         validated_org = None
 
         source_name = get_action('harvest_source_show')(base_context.copy(),{'id':harvest_object.source.id}).get('name')
-        mapped_org = PROVIDER_ORG_MAPPINGS.get(source_name,{}).get(organization)
+
+        org_name = canonicalise_org_to_name(base_context.copy(), organization)
+        
+        mapped_org = PROVIDER_ORG_MAPPINGS.get(source_name,{}).get(org_name)
 
         try:
-            data_dict = {"id": mapped_org['name'] if mapped_org else organization}
+            data_dict = {"id": mapped_org['name'] if mapped_org else org_name}
             org = get_action("organization_show")(
                 base_context.copy(), data_dict
             )
