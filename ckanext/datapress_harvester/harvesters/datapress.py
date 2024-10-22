@@ -656,7 +656,7 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
             harvester_org = harvest_source.get("owner_org")
 
             # canonicalise id to name
-            harvester_org = toolkit.get_action('organization_show')(data_dict={'id': harvester_org})['name']
+            harvester_org = toolkit.get_action('organization_show')(base_context.copy(), data_dict={'id': harvester_org})['name']
             
             remote_orgs = self.config.get("remote_orgs", None)                       
             validated_org = None
@@ -673,6 +673,9 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
                 remote_org = package_dict.get("owner_org")
                 
                 if remote_org:
+                    # canonicalise org id to org name
+                    remote_org = toolkit.get_action('organization_show')(base_context.copy(), data_dict={'id': remote_org})['name']
+
                     validated_org = self.get_mapped_organization(base_context, harvest_object, remote_org, remote_orgs, package_dict, None)
 
                 package_dict["owner_org"] = validated_org or harvester_org
