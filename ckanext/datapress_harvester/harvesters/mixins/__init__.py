@@ -34,11 +34,11 @@ class DFLHarvesterMixin:
             org = get_action("organization_show")(
                 base_context.copy(), data_dict
             )
-            validated_org = org["id"]
+            validated_org = org["name"]
             log.info(f'Org {validated_org} exists')
             return validated_org
         except NotFound:
-            log.info("Organization %s is not available", organization)
+            log.debug("Organization %s does not exist yet", organization)
 
             if remote_orgs == "create": 
                 org = package_dict.get("organization") or {'name': organization, 'title': package_dict.get('org_name', organization)}
@@ -66,9 +66,11 @@ class DFLHarvesterMixin:
 
                 log.info(f'Attempt to create {org["name"]}')
                 new_org = get_action("organization_create")(base_context.copy(), org)
-                log.info(
-                    "Organization %s has been newly created", organization
-                )
-                validated_org = new_org["id"]
+                validated_org = new_org["name"]
+                log.info("Organization %s has been newly created", validated_org)
+            else:
+                log.warn("{'remote_orgs':'create'} is not configured and a new org mapping from %s -> %s exists; this will be ignored", organization, mapped_org['name'])
+                validated_org = organization 
+                
 
         return validated_org
