@@ -47,6 +47,23 @@ def _generate_resource(package_id, dataset, is_csv):
 
 
 class RedbridgeHarvester(HarvesterBase, DFLHarvesterMixin):
+
+    def validate_config(self, config):
+        if not config:
+            return config
+
+        try:
+            config_obj = json.loads(config)
+            if "remote_orgs" in config_obj:
+                if config_obj["remote_orgs"] != "create":
+                    raise ValueError("The redbridge harvester only supports remote_orgs being set to 'create' or not at all")
+            
+        except ValueError as e:
+            raise e
+
+        return config
+    
+    
     def info(self):
         return {
             "name": "redbridge",
@@ -55,6 +72,15 @@ class RedbridgeHarvester(HarvesterBase, DFLHarvesterMixin):
             "form_config_interface": "Text",
         }
 
+    def _set_config(self, config_str):
+        if config_str:
+            self.config = json.loads(config_str)
+            if "api_version" in self.config:
+                self.api_version = int(self.config["api_version"])
+
+            log.debug("Using config: %r", self.config)
+
+    
     def gather_stage(self, harvest_job):
         pkg_dicts = []
 
@@ -176,6 +202,7 @@ class RedbridgeHarvester(HarvesterBase, DFLHarvesterMixin):
         return True
 
     def import_stage(self, harvest_object):
+        self._set_config(harvest_object.source.config)
         base_context = {
             "model": model,
             "session": model.Session,
