@@ -309,15 +309,36 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
                     lookup[pkg_id] = pkg_extra_fields
 
             resources_extras = {}
-            for res_id, res_obj in package_dict.get('resources',[]).items():
-                resource_extra_fields = {}
-                for field in EXTRA_RESOURCE_FIELDS:
-                    if field in res_obj and has_value(res_obj[field]):
-                        resource_extra_fields[field] = res_obj[field]
-                if resource_extra_fields:
-                    resources_extras[res_id] = resource_extra_fields
-            package_dict['resources'] = resources_extras
-            lookup[pkg_id] = package_dict
+
+            if isinstance(package_dict.get('resources'), list):
+               # NOTE: the barnet/brent datapress instances on the
+               # export API return a structure like:
+               #
+               # resources: [<res_obj>]
+               #
+               # Where as the data for london datapress returns:
+               # resources: {<res_id>: <res_obj>}
+               #
+               # So we normalise these to the london datapress format.
+
+               normalised_resources = []
+               for res_obj in package_dict.get('resources',[]):
+                   res_id = res_obj['id']
+                   
+                   normalised_resources.append({res_id: res_obj})
+               package_dict['resources'] = normalised_resources
+
+            
+            if isinstance(package_dict.get('resources'), dict):
+               for res_id, res_obj in package_dict.get('resources',[]).items():                   
+                   resource_extra_fields = {}
+                   for field in EXTRA_RESOURCE_FIELDS:
+                       if field in res_obj and has_value(res_obj[field]):
+                           resource_extra_fields[field] = res_obj[field]
+                   if resource_extra_fields:
+                       resources_extras[res_id] = resource_extra_fields
+               package_dict['resources'] = resources_extras
+               lookup[pkg_id] = package_dict
         
         return lookup
 
@@ -341,7 +362,7 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
         #
         # https://datapress.gitbook.io/datapress/ckan-requests
         url = f"{remote_datapress_base_url}/api/action/current_package_list_with_resources"
-        log.debug("Fetching DataPress datasets: %s", url)
+        log.info("Fetching DataPress datasets: %s", url)
         data = requests.get(url, headers=request_headers).json()
 
         assert data["success"]
@@ -403,7 +424,8 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
             new_tag = re.sub("[^a-zA-Z0-9 \-_.]", "", tag)
             return {'name': new_tag}
 
-        package_dict["tags"] = list(map(fixup_tag, package_dict["tags"]))
+        if package_dict.get('tags'):
+            package_dict["tags"] = list(map(fixup_tag, package_dict["tags"]))
 
         # Some emails need cleaning up. (I think CKAN is actually too strict
         # here, and rejects valid emails. You're allowed some pretty weird
@@ -440,7 +462,7 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
             if key not in package_dict:
                 package_dict[key] = ""
 
-        for resource in package_dict["resources"]:
+        for resource in package_dict.get("resources",[]):
             # Remove Nones
             for key in list(resource):
                 if resource[key] is None:
