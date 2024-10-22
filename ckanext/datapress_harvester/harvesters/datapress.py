@@ -25,6 +25,29 @@ log = logging.getLogger(__name__)
 EXTRA_PKG_FIELDS = ['london_smallest_geography', 'update_frequency']
 EXTRA_RESOURCE_FIELDS = ['temporal_coverage_from', 'temporal_coverage_to']
 
+def normalise_ckan_resources(package_dict):
+    normalised_resources = package_dict.get('resources',[])
+    if not package_dict.get('resources') and package_dict.get('organization',{}).get('resources',[]):
+        # The brent/barnet datapress instances return resources under
+        # organization/resources not /resources like london data-press.
+        #
+        # So we harmonise them here
+        normalised_resources = package_dict.get('organization',{}).get('resources',[])
+
+    def fixup_id(res):
+        input_id = res['id']
+        # CKAN has a validation that ID's must have a minimum length,
+        # but upstream sources have different rules, so pad ids with
+        # 0's if they're shorter than 7 characters
+        res['id'] = input_id.rjust(7,'0')
+        
+        return res
+
+    normalised_resources = list(map(fixup_id, normalised_resources))
+    package_dict['resources'] = normalised_resources
+    
+    
+
 class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
     """
     A Harvester for DataPress instances.
@@ -723,7 +746,10 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
                 },
             ]
 
+            normalise_ckan_resources(package_dict)
+            
             for resource in package_dict.get("resources", []):
+                
                 # Clear remote url_type for resources (eg datastore, upload) as
                 # we are only creating normal resources with links to the
                 # remote ones
@@ -739,7 +765,7 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
 
             package_dict_form = self.modify_package_dict(package_dict, harvest_object)
             result = self._create_or_update_package(
-                package_dict, harvest_object, package_dict_form="package_show"
+                package_dict_form, harvest_object, package_dict_form="package_show"
             )
 
             return result
