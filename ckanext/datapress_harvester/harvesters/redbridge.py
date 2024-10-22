@@ -239,13 +239,17 @@ class RedbridgeHarvester(HarvesterBase, DFLHarvesterMixin):
             harvest_source = toolkit.get_action("package_show")(
                 base_context.copy(), {"id": harvest_object.source.id}
             )
-            
-            org = harvest_source.get("owner_org")
+                        
+            harvester_org = harvest_source.get("owner_org")
+
+            # canonicalise id to name
+            harvester_org = toolkit.get_action('organization_show')(base_context.copy(), data_dict={'id': harvester_org})['name']
 
             config = self.config or {}
             
-            remote_orgs = config.get("remote_orgs", None)   
-            mapped_org = self.get_mapped_organization(base_context, harvest_object, org, remote_orgs, package_dict, None)
+            remote_orgs = config.get("remote_orgs", None)
+            
+            mapped_org = self.get_mapped_organization(base_context, harvest_object, harvester_org, remote_orgs, package_dict, None)
             package_dict["owner_org"] = mapped_org
 
             add_default_keys(package_dict)
