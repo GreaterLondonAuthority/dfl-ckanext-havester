@@ -19,7 +19,7 @@ from ckanext.datapress_harvester.util import (
     add_default_extras,
     add_existing_extras,
 )
-
+from .mixins import DFLHarvesterMixin
 log = logging.getLogger(__name__)
 
 REDBRIDGE_API_URL = "http://data.redbridge.gov.uk/api/"
@@ -46,7 +46,24 @@ def _generate_resource(package_id, dataset, is_csv):
     }
 
 
-class RedbridgeHarvester(HarvesterBase):
+class RedbridgeHarvester(HarvesterBase, DFLHarvesterMixin):
+
+    def validate_config(self, config):
+        if not config:
+            return config
+
+        try:
+            config_obj = json.loads(config)
+            if "remote_orgs" in config_obj:
+                if config_obj["remote_orgs"] != "create":
+                    raise ValueError("The redbridge harvester only supports remote_orgs being set to 'create' or not at all")
+            
+        except ValueError as e:
+            raise e
+
+        return config
+    
+    
     def info(self):
         return {
             "name": "redbridge",
@@ -55,6 +72,15 @@ class RedbridgeHarvester(HarvesterBase):
             "form_config_interface": "Text",
         }
 
+    def _set_config(self, config_str):
+        if config_str:
+            self.config = json.loads(config_str)
+            if "api_version" in self.config:
+                self.api_version = int(self.config["api_version"])
+
+            log.debug("Using config: %r", self.config)
+
+    
     def gather_stage(self, harvest_job):
         pkg_dicts = []
 
@@ -169,12 +195,14 @@ class RedbridgeHarvester(HarvesterBase):
                 object_ids.append(obj.id)
             return object_ids
         except Exception as e:
+            log.exception('Unexpected error during gather')
             self._save_gather_error("%r" % e.message, harvest_job)
 
     def fetch_stage(self, harvest_object):
         return True
 
     def import_stage(self, harvest_object):
+        self._set_config(harvest_object.source.config)
         base_context = {
             "model": model,
             "session": model.Session,
@@ -201,6 +229,7 @@ class RedbridgeHarvester(HarvesterBase):
                 )
                 return True
         except Exception as e:
+            log.exception('Unexpected error during import')
             self._save_object_error(
                 "Failed to parse harvest object: %s" % e, harvest_object, "Import"
             )
@@ -210,7 +239,15 @@ class RedbridgeHarvester(HarvesterBase):
             harvest_source = toolkit.get_action("package_show")(
                 base_context.copy(), {"id": harvest_object.source.id}
             )
-            package_dict["owner_org"] = harvest_source.get("owner_org")
+                        
+            harvester_org = harvest_source.get("owner_org")
+
+            config = self.config or {}
+            
+            remote_orgs = config.get("remote_orgs", None)
+            
+            mapped_org = self.get_mapped_organization(base_context, harvest_object, harvester_org, remote_orgs, package_dict, None)
+            package_dict["owner_org"] = mapped_org
 
             add_default_keys(package_dict)
 
@@ -228,4 +265,5 @@ class RedbridgeHarvester(HarvesterBase):
 
             return result
         except Exception as e:
+            log.exception('Unexpected error')
             self._save_object_error("%s" % e, harvest_object, "Import")

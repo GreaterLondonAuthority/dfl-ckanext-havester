@@ -8,20 +8,7 @@ import ckan.plugins.toolkit as tk
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject
 from ckan.logic import NotFound 
-import csv
-
-log = logging.getLogger(__name__)
-
-
-
-ORGAINZATION_DICT = {}
-try:
-    with open("organisation_mappings.csv", mode='r') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            ORGAINZATION_DICT[row["Original ID"]] = row["Override ID"]
-except:
-    log.warning("Failed to load CSV")
+from .mixins import DFLHarvesterMixin
 
 from ckanext.datapress_harvester.util import (
     get_package_extra_val,
@@ -32,6 +19,8 @@ from ckanext.datapress_harvester.util import (
     add_default_extras,
     add_existing_extras
 )
+
+log = logging.getLogger(__name__)
 
 # In ckan, we should be able to add a license list such as
 # https://licenses.opendefinition.org/licenses/groups/all.json by setting the ckan.licenses_group_url field in the config, but that doesn't seem to be
@@ -72,7 +61,7 @@ def to_iso_date(opendata_date_str):
     dt = datetime.datetime.strptime(opendata_date_str, "%Y-%m-%dT%H:%M:%S.%fZ")
     return dt.isoformat()
 
-class SODAHarvester(HarvesterBase):
+class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
     url = None
     domain = None
     app_token = None
@@ -81,9 +70,9 @@ class SODAHarvester(HarvesterBase):
     def _set_config(self, source):
         self.url = source.url.rstrip("/")
         self.domain = self.url.split("://")[1]
-        config = json.loads(source.config)
-        self.app_token = config["app_token"]
-        self.create_organisations = config.get("remote_orgs") == "create"
+        self.config = json.loads(source.config)
+        self.app_token = self.config["app_token"]
+        self.create_organisations = self.config.get("remote_orgs") == "create"
 
     def info(self):
         return {
@@ -95,7 +84,7 @@ class SODAHarvester(HarvesterBase):
 
     def validate_config(self, source_config):
         source_config_obj = json.loads(source_config)
-        if not "app_token" in source_config:
+        if "app_token" not in source_config:
             raise ValueError("No application token provided in the 'app_token' field")
         return source_config
 
@@ -157,6 +146,7 @@ class SODAHarvester(HarvesterBase):
         md5 = hashlib.md5()
         content_hash = md5.update(str(pkg_dict).encode())
         content_hash = md5.hexdigest()
+        log.debug(f'Made entry for {ds_id}')
         return {**pkg_dict, "content_hash": content_hash}
 
     def gather_stage(self, harvest_job):
@@ -183,7 +173,7 @@ class SODAHarvester(HarvesterBase):
             start_index += batch_size
             log.info(f"Fetched {len(datasets)} out of {total_num_results} datasets")
 
-        log.info(f"Converting datasets into HarvestObjects")
+        log.info("Converting datasets into HarvestObjects")
 
         catalog_entries = [self._create_catalog_entry(d) for d in datasets]
 
@@ -207,7 +197,9 @@ class SODAHarvester(HarvesterBase):
                 obj.save()
                 object_ids.append(obj.id)
         except Exception as e:
-            self._save_gather_error("Error gathering dataset updates: %r" % e.message, harvest_job)
+            error_msg = "Error gathering dataset updates: %r" % e.message
+            log.exception(error_msg)
+            self._save_gather_error(error_msg, harvest_job)
         try:
             for pk_id in deleted_ids:
                 obj = HarvestObject(
@@ -220,7 +212,9 @@ class SODAHarvester(HarvesterBase):
                 object_ids.append(obj.id)
             return object_ids
         except Exception as e:
-            self._save_gather_error("Error gathering datasets to delete: %r" % e.message, harvest_job)
+            error_msg = "Error gathering datasets to delete: %r" % e.message
+            log.exception(error_msg)
+            self._save_gather_error(error_msg, harvest_job)
 
 
     def _dataset_to_pkgdict(self, dataset):
@@ -237,33 +231,6 @@ class SODAHarvester(HarvesterBase):
     def fetch_stage(self, harvest_object):
         return True
 
-    def _maybe_create_organisation(self, base_context, org_name, org_link):
-
-        org_id = sanitise(org_name)
-
-        mapped_org_id = ORGAINZATION_DICT.get(org_id, org_id)
-
-        try:
-            data_dict = {"id": mapped_org_id}
-            org = tk.get_action("organization_show")(
-                base_context.copy(), data_dict
-            )
-            return org["id"]
-        except NotFound:
-            org = {"title": org_name,
-                    "id": org_id,
-                    "name": org_id,
-                    "state": "active"}
-            if org_link is not None:
-                org = {**org,
-                        "extras": [{"key": "Website",
-                                    "value": org_link}]}
-            tk.get_action("organization_create")(base_context.copy(), org)
-            log.info(
-                "Organization %s has been newly created", org_name
-            )
-            return org["id"]
-
     def _delete_dataset(self, base_context, pkg_dict):
         pkg_id = pkg_dict["id"]
         log.info(f"Deleting dataset {pkg_id}")
@@ -273,6 +240,8 @@ class SODAHarvester(HarvesterBase):
         return True
 
     def import_stage(self, harvest_object):
+        self._set_config(harvest_object.source)
+
         base_context = {
             "model": model,
             "session": model.Session,
@@ -289,24 +258,26 @@ class SODAHarvester(HarvesterBase):
                     log.info("Successfully deleted")
                     return ok
                 except Exception as e:
-                    self._save_object_error("Failed to delete dataset: %s" % e,
-                                            harvest_object,
-                                            "Import")
+                    error_msg = "Failed to delete dataset: %s" % e
+                    log.exception(error_msg)
+
+                    self._save_object_error(error_msg, harvest_object, "Import")
                     return False
             case "create":
                 log.info(f"Dataset \"{imported_dataset['name']}\" does not currently exist. Importing...")
                 try:
                     package_dict = self._dataset_to_pkgdict(imported_dataset)
                     # Assuming that organisations never change - if they do we need to do this for update also
-                    if self.create_organisations and package_dict["org_name"] is not None:
-                        owner_org = self._maybe_create_organisation(base_context,
-                                                                    package_dict.get("org_name"),
-                                                                    package_dict.get("org_link"))
+                    if self.create_organisations and package_dict.get("org_name") is not None:
+                        org_id = sanitise(package_dict.get("org_name"))
+                        owner_org = self.get_mapped_organization(base_context, harvest_object, org_id, self.config.get("remote_orgs"), package_dict, package_dict.get("org_link"))
                     else:
                         harvest_source = tk.get_action("package_show")(
                             base_context.copy(), {"id": harvest_object.source.id}
                         )
-                        owner_org = harvest_source['organization']['name']
+                        source_org = harvest_source['organization']['name']
+                            
+                        owner_org = self.get_mapped_organization(base_context, harvest_object, source_org, self.config.get("remote_orgs"), package_dict, None)
 
                     package_dict["owner_org"] = owner_org
 
@@ -322,7 +293,9 @@ class SODAHarvester(HarvesterBase):
                                                             package_dict_form="package_show")
                     return result
                 except Exception as e:
-                    self._save_object_error("Error creating new dataset: %s" % e, harvest_object, "Import")
+                    error_msg = "Error creating new dataset: %s" % e
+                    log.exception(error_msg)
+                    self._save_object_error(error_msg, harvest_object, "Import")
 
             case "update":
                 try:
@@ -351,4 +324,6 @@ class SODAHarvester(HarvesterBase):
                                                                 package_dict_form="package_show")
                         return result
                 except Exception as e:
-                    self._save_object_error("Error modifying existing dataset: %s" % e, harvest_object, "Import")
+                    error_msg = "Error modifying existing dataset: %s" % e
+                    log.exception(error_msg)
+                    self._save_object_error(error_msg, harvest_object, "Import")

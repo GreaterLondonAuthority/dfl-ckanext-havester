@@ -18,34 +18,37 @@ from ckanext.datapress_harvester.util import (
     get_harvested_dataset_ids,
 )
 from ckanext.harvest.harvesters import HarvesterBase
+from .mixins import DFLHarvesterMixin
 from ckanext.harvest.model import HarvestObject
-import csv
-
-
 log = logging.getLogger(__name__)
 
 EXTRA_PKG_FIELDS = ['london_smallest_geography', 'update_frequency']
 EXTRA_RESOURCE_FIELDS = ['temporal_coverage_from', 'temporal_coverage_to']
 
-PROVIDER_ORG_MAPPINGS = {}
-try:
-    with open("organisation_mappings.csv", mode='r', encoding='utf-8-sig') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            provider_id = row["Provider"]
-            original_id = row["Original ID"]
-            if provider_id not in PROVIDER_ORG_MAPPINGS:
-                PROVIDER_ORG_MAPPINGS[provider_id] = {}
-            if original_id not in PROVIDER_ORG_MAPPINGS[provider_id]:
-                PROVIDER_ORG_MAPPINGS[provider_id][original_id] = {}
-                
-            PROVIDER_ORG_MAPPINGS[provider_id][original_id]['name'] = row["Override ID"]
-            PROVIDER_ORG_MAPPINGS[provider_id][original_id]['title'] = row["Override Title"]                        
-except BaseException as ex:    
-    log.info(f"No organisation_mappings.csv file was provided to canonicalise organisation names {ex}")
+def normalise_ckan_resources(package_dict):
+    normalised_resources = package_dict.get('resources',[])
+    if not package_dict.get('resources') and package_dict.get('organization',{}).get('resources',[]):
+        # The brent/barnet datapress instances return resources under
+        # organization/resources not /resources like london data-press.
+        #
+        # So we harmonise them here
+        normalised_resources = package_dict.get('organization',{}).get('resources',[])
 
+    def fixup_id(res):
+        input_id = res['id']
+        # CKAN has a validation that ID's must have a minimum length,
+        # but upstream sources have different rules, so pad ids with
+        # 0's if they're shorter than 7 characters
+        res['id'] = input_id.rjust(7,'0')
+        
+        return res
+
+    normalised_resources = list(map(fixup_id, normalised_resources))
+    package_dict['resources'] = normalised_resources
     
-class DataPressHarvester(HarvesterBase):
+    
+
+class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
     """
     A Harvester for DataPress instances.
 
@@ -329,15 +332,36 @@ class DataPressHarvester(HarvesterBase):
                     lookup[pkg_id] = pkg_extra_fields
 
             resources_extras = {}
-            for res_id, res_obj in package_dict.get('resources',[]).items():
-                resource_extra_fields = {}
-                for field in EXTRA_RESOURCE_FIELDS:
-                    if field in res_obj and has_value(res_obj[field]):
-                        resource_extra_fields[field] = res_obj[field]
-                if resource_extra_fields:
-                    resources_extras[res_id] = resource_extra_fields
-            package_dict['resources'] = resources_extras
-            lookup[pkg_id] = package_dict
+
+            if isinstance(package_dict.get('resources'), list):
+               # NOTE: the barnet/brent datapress instances on the
+               # export API return a structure like:
+               #
+               # resources: [<res_obj>]
+               #
+               # Where as the data for london datapress returns:
+               # resources: {<res_id>: <res_obj>}
+               #
+               # So we normalise these to the london datapress format.
+
+               normalised_resources = []
+               for res_obj in package_dict.get('resources',[]):
+                   res_id = res_obj['id']
+                   
+                   normalised_resources.append({res_id: res_obj})
+               package_dict['resources'] = normalised_resources
+
+            
+            if isinstance(package_dict.get('resources'), dict):
+               for res_id, res_obj in package_dict.get('resources',[]).items():                   
+                   resource_extra_fields = {}
+                   for field in EXTRA_RESOURCE_FIELDS:
+                       if field in res_obj and has_value(res_obj[field]):
+                           resource_extra_fields[field] = res_obj[field]
+                   if resource_extra_fields:
+                       resources_extras[res_id] = resource_extra_fields
+               package_dict['resources'] = resources_extras
+               lookup[pkg_id] = package_dict
         
         return lookup
 
@@ -361,7 +385,7 @@ class DataPressHarvester(HarvesterBase):
         #
         # https://datapress.gitbook.io/datapress/ckan-requests
         url = f"{remote_datapress_base_url}/api/action/current_package_list_with_resources"
-        log.debug("Fetching DataPress datasets: %s", url)
+        log.info("Fetching DataPress datasets: %s", url)
         data = requests.get(url, headers=request_headers).json()
 
         assert data["success"]
@@ -423,7 +447,8 @@ class DataPressHarvester(HarvesterBase):
             new_tag = re.sub("[^a-zA-Z0-9 \-_.]", "", tag)
             return {'name': new_tag}
 
-        package_dict["tags"] = list(map(fixup_tag, package_dict["tags"]))
+        if package_dict.get('tags'):
+            package_dict["tags"] = list(map(fixup_tag, package_dict["tags"]))
 
         # Some emails need cleaning up. (I think CKAN is actually too strict
         # here, and rejects valid emails. You're allowed some pretty weird
@@ -443,7 +468,7 @@ class DataPressHarvester(HarvesterBase):
                 validators.name_validator(organization["name"], None)
             except validators.Invalid:
                 log.info(
-                    f"renaming organization from {organization['name']} to {organization['id']}"
+                    f"Slugging organization id from {organization['name']} to {organization['id']}"
                 )
                 organization["name"] = organization["id"]
 
@@ -460,7 +485,7 @@ class DataPressHarvester(HarvesterBase):
             if key not in package_dict:
                 package_dict[key] = ""
 
-        for resource in package_dict["resources"]:
+        for resource in package_dict.get("resources",[]):
             # Remove Nones
             for key in list(resource):
                 if resource[key] is None:
@@ -624,61 +649,30 @@ class DataPressHarvester(HarvesterBase):
                 package_dict["groups"] = validated_groups
             
             # Local harvest source organization
-            source_dataset = get_action("package_show")(
+            harvest_source = get_action("package_show")(
                 base_context.copy(), {"id": harvest_object.source.id}
             )
-            local_org = source_dataset.get("owner_org")
+
+            harvester_org = harvest_source.get("owner_org")
 
             remote_orgs = self.config.get("remote_orgs", None)                       
-            
+            validated_org = None
+
             if remote_orgs not in ("only_local", "create"):
                 # Assign dataset to the source organization
-                package_dict["owner_org"] = local_org
+                validated_org = self.get_mapped_organization(base_context, harvest_object, harvester_org, remote_orgs, package_dict, None)
+                package_dict["owner_org"] = validated_org
             else:
                 if "owner_org" not in package_dict:
                     package_dict["owner_org"] = None
 
                 # check if remote org exist locally, otherwise remove
-                validated_org = None
-                remote_org = package_dict["owner_org"]
-
+                remote_org = package_dict.get("owner_org")
+                
                 if remote_org:
-                    try:
-                        data_dict = {"id": remote_org}
-                        org = get_action("organization_show")(
-                            base_context.copy(), data_dict
-                        )
-                        validated_org = org["id"]
-                    except NotFound:
-                        log.info("Organization %s is not available", remote_org)                        
-                        if remote_orgs == "create" and "organization" in package_dict:
+                    validated_org = self.get_mapped_organization(base_context, harvest_object, remote_org, remote_orgs, package_dict, None)
 
-                            source_name = get_action('harvest_source_show')(base_context,{'id':harvest_object.source.id}).get('name')
-                            org = package_dict["organization"]
-                            mapped_org = PROVIDER_ORG_MAPPINGS.get(source_name,{}).get(org["name"])
-
-                            if mapped_org:                                
-                                org["title"] = mapped_org.get('title') or mapped_org['name']
-                                org["name"]= mapped_org['name']
-                            
-                            for key in [
-                                "packages",
-                                "created",
-                                "users",
-                                "groups",
-                                "tags",
-                                "extras",
-                                "display_name",
-                                "type",
-                            ]:
-                                org.pop(key, None)
-                            get_action("organization_create")(base_context.copy(), org)
-                            log.info(
-                                "Organization %s has been newly created", remote_org
-                            )
-                            validated_org = org["id"]
-
-                package_dict["owner_org"] = validated_org or local_org
+                package_dict["owner_org"] = validated_org or harvester_org
 
             # Set default groups if needed
             default_groups = self.config.get("default_groups", [])
@@ -753,7 +747,10 @@ class DataPressHarvester(HarvesterBase):
                 },
             ]
 
+            normalise_ckan_resources(package_dict)
+            
             for resource in package_dict.get("resources", []):
+                
                 # Clear remote url_type for resources (eg datastore, upload) as
                 # we are only creating normal resources with links to the
                 # remote ones
@@ -769,7 +766,7 @@ class DataPressHarvester(HarvesterBase):
 
             package_dict_form = self.modify_package_dict(package_dict, harvest_object)
             result = self._create_or_update_package(
-                package_dict, harvest_object, package_dict_form="package_show"
+                package_dict_form, harvest_object, package_dict_form="package_show"
             )
 
             return result
