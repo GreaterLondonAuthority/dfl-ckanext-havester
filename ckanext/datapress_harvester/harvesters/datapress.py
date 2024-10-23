@@ -468,7 +468,7 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
                 validators.name_validator(organization["name"], None)
             except validators.Invalid:
                 log.info(
-                    f"renaming organization from {organization['name']} to {organization['id']}"
+                    f"Slugging organization id from {organization['name']} to {organization['id']}"
                 )
                 organization["name"] = organization["id"]
 
