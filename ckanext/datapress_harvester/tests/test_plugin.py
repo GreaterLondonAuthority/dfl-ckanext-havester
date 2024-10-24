@@ -47,10 +47,12 @@ To temporary patch the CKAN configuration for the duration of a test you can use
     def test_some_action():
         pass
 """
-import ckanext.datapress_harvester.plugin as plugin
+import pytest
+import ckanext.datapress_harvester as plugin
+import ckan.plugins as p
 
 
 @pytest.mark.ckan_config("ckan.plugins", "datapress_harvester")
 @pytest.mark.usefixtures("with_plugins")
 def test_plugin():
-    assert plugin_loaded("datapress_harvester")
+    assert p.plugin_loaded("datapress_harvester")
