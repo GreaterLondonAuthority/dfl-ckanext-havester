@@ -397,6 +397,7 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
             remote_datapress_base_url, request_headers
         )
 
+        # Merge the extra fields from datapress API with the ckan package_dict structure
         for dataset_dict in results:
             extra_fields = self.extra_fields_lookup.get(dataset_dict["id"], {})
             extra_resource_fields = extra_fields.pop('resources',[])
