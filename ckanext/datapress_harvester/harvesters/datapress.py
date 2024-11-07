@@ -23,7 +23,7 @@ from ckanext.harvest.model import HarvestObject
 log = logging.getLogger(__name__)
 
 EXTRA_PKG_FIELDS = ['london_smallest_geography', 'update_frequency']
-EXTRA_RESOURCE_FIELDS = ['temporal_coverage_from', 'temporal_coverage_to', 'url']
+EXTRA_RESOURCE_FIELDS = ['temporal_coverage_from', 'temporal_coverage_to', 'url', 'timeFrame']
 
 def normalise_ckan_resources(package_dict):
     normalised_resources = package_dict.get('resources',[])
@@ -529,6 +529,12 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
 
                 if resource["format"] == "image":
                     resource["format"] = self._guess_image_format(resource["url"])
+
+            if "timeFrameFrom" in resource:
+                resource["temporal_coverage_from"] = datetime.strptime(resource["timeFrameFrom"], "%Y-%m").strftime("%Y-%m-%d")
+
+            if "timeFrameTo" in resource:
+                resource["temporal_coverage_to"] = datetime.strptime(resource["timeFrameTo"], "%Y-%m").strftime("%Y-%m-%d")
 
         # Remove the timezone from the dates. CKAN doesn't store it internally and it
         # messes up date-based comparisons later if the timezone is kept (because the base
