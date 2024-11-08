@@ -23,7 +23,7 @@ from ckanext.harvest.model import HarvestObject
 log = logging.getLogger(__name__)
 
 EXTRA_PKG_FIELDS = ['london_smallest_geography', 'update_frequency']
-EXTRA_RESOURCE_FIELDS = ['temporal_coverage_from', 'temporal_coverage_to']
+EXTRA_RESOURCE_FIELDS = ['temporal_coverage_from', 'temporal_coverage_to', 'url', 'timeFrame']
 
 def normalise_ckan_resources(package_dict):
     normalised_resources = package_dict.get('resources',[])
@@ -350,8 +350,8 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
                    
                    normalised_resources.append({res_id: res_obj})
                package_dict['resources'] = normalised_resources
+               lookup[pkg_id] = package_dict
 
-            
             if isinstance(package_dict.get('resources'), dict):
                for res_id, res_obj in package_dict.get('resources',[]).items():                   
                    resource_extra_fields = {}
@@ -400,12 +400,25 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
         for dataset_dict in results:
             extra_fields = self.extra_fields_lookup.get(dataset_dict["id"], {})
             extra_resource_fields = extra_fields.pop('resources',[])
-            for resource_obj in dataset_dict.get('resources',[]):
-                res_id = resource_obj['id']
-                if res_id in extra_resource_fields:
-                    resource_obj.update(extra_resource_fields[res_id])
 
-            dataset_dict.update(extra_fields)
+            # Convert extra_resource_fields to a dictionary for faster lookup by res_id
+            if isinstance(extra_resource_fields,dict):
+                # london datapress format is already a dict of id -> resource
+                extra_resource_fields_dict = extra_resource_fields
+            else:
+                # brent/barnet datapress format as a list of resources
+                # (which have an id) so convert it into london format
+                extra_resource_fields_dict = {res_id: res_obj for resource in extra_resource_fields for res_id, res_obj in resource.items()}
+
+
+            resources = dataset_dict.get('resources') or dataset_dict.get('organization', {}).get('resources', [])
+
+            for resource_obj in resources:
+                    res_id = resource_obj['id']
+                    if res_id in extra_resource_fields_dict:
+                        resource_obj.update(extra_resource_fields_dict[res_id])
+
+            dataset_dict.update(extra_fields)  
         
         return results
 
@@ -502,7 +515,7 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
             # tweaks like this on a per-datapress-instance basis.
             # Do all DataPress instances work similarly? Can we use the harvest
             # URL here?
-            if resource["url"].startswith("https://airdrive-secure.s3-eu-west-1"):
+            if "url" in resource and resource["url"].startswith("https://airdrive-secure.s3-eu-west-1"):
                 base = "https://data.london.gov.uk/download"
                 dataset = package_dict["name"]
                 id = resource["id"]
@@ -510,11 +523,18 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
                 format = resource["format"]
                 resource["url"] = f"{base}/{dataset}/{id}/{file}.{format}"
 
-            if "format" not in resource or not resource["format"]:
-                resource["format"] = self._resource_format_from_url(resource["url"])
+            if "url" in resource:
+                if "format" not in resource or not resource["format"]:
+                    resource["format"] = self._resource_format_from_url(resource["url"])
 
-            if resource["format"] == "image":
-                resource["format"] = self._guess_image_format(resource["url"])
+                if resource["format"] == "image":
+                    resource["format"] = self._guess_image_format(resource["url"])
+
+            if "timeFrameFrom" in resource:
+                resource["temporal_coverage_from"] = datetime.strptime(resource["timeFrameFrom"], "%Y-%m").strftime("%Y-%m-%d")
+
+            if "timeFrameTo" in resource:
+                resource["temporal_coverage_to"] = datetime.strptime(resource["timeFrameTo"], "%Y-%m").strftime("%Y-%m-%d")
 
         # Remove the timezone from the dates. CKAN doesn't store it internally and it
         # messes up date-based comparisons later if the timezone is kept (because the base
@@ -567,6 +587,8 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
                     base_context.copy(), package_dict
                 )
                 return True
+
+            normalise_ckan_resources(package_dict)
 
             package_dict = self._datapress_to_ckan(package_dict, harvest_object)
 
@@ -747,8 +769,6 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
                 },
             ]
 
-            normalise_ckan_resources(package_dict)
-            
             for resource in package_dict.get("resources", []):
                 
                 # Clear remote url_type for resources (eg datastore, upload) as
