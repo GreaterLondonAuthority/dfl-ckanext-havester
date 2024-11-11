@@ -40,6 +40,7 @@ def _generate_resource(package_id, dataset, is_csv):
         "package_id": package_id,
         "url": url,
         "name": dataset["Title"],
+        "upstream_created_at": dataset["DateCreated"],
         "last_modified": dataset["DateUpdated"],
         "format": "csv" if is_csv else "xml",
     }
