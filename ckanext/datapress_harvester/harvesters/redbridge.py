@@ -147,20 +147,30 @@ class RedbridgeHarvester(HarvesterBase, DFLHarvesterMixin):
                     sha1 = hashlib.sha1()
                     package_id = sha1.update(full_title.encode())
                     package_id = sha1.hexdigest()
-
+                    friendly_url = d["FriendlyUrl"]
+                    upstream_url = friendly_url.replace('/XML','')
                     package_dict = {
                         "id": package_id,
                         "title": full_title,
                         "name": full_title,
                         "notes": schema_description,
-                        "license_id": "uk-ogl",
-                        "upstream_metadata_created": d["DateUpdated"],
-                        "upstream_metadata_modified": d["DateUpdated"],
+                        "license_id": "uk-ogl",                        
+                        "extras": [
+                            {
+                                "key": "upstream_url",
+                                "value": upstream_url
+                            },
+                            {"key": "upstream_metadata_created",
+                             "value": d["DateCreated"]},
+                            {"key": "upstream_metadata_modified",
+                             "value": d["DateUpdated"]}],
                         "resources": [
                             _generate_resource(package_id, d, is_csv=False),
                             _generate_resource(package_id, d, is_csv=True),
                         ],
                     }
+                    log.debug(f'{package_id} created {d["DateCreated"]} {d["DateUpdated"]}')
+                    
                     pkg_dicts.append(package_dict)
 
         # Create a Set of dataset ids fetched from upstream,
