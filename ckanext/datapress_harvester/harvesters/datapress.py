@@ -23,7 +23,7 @@ from ckanext.harvest.model import HarvestObject
 log = logging.getLogger(__name__)
 
 EXTRA_PKG_FIELDS = ['london_smallest_geography', 'update_frequency']
-EXTRA_RESOURCE_FIELDS = ['temporal_coverage_from', 'temporal_coverage_to', 'url', 'timeFrame']
+EXTRA_RESOURCE_FIELDS = ['temporal_coverage_from', 'temporal_coverage_to', 'url', 'timeFrame', 'check_timestamp']
 
 def normalise_ckan_resources(package_dict):
     normalised_resources = package_dict.get('resources',[])
