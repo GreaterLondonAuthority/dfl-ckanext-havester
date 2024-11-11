@@ -40,7 +40,6 @@ def _generate_resource(package_id, dataset, is_csv):
         "package_id": package_id,
         "url": url,
         "name": dataset["Title"],
-        "metedata_modified": dataset["DateUpdated"],
         "last_modified": dataset["DateUpdated"],
         "format": "csv" if is_csv else "xml",
     }
@@ -154,7 +153,6 @@ class RedbridgeHarvester(HarvesterBase, DFLHarvesterMixin):
                         "name": full_title,
                         "notes": schema_description,
                         "license_id": "uk-ogl",
-                        "metadata_modified": d["DateUpdated"],
                         "upstream_metadata_created": d["DateUpdated"],
                         "upstream_metadata_modified": d["DateUpdated"],
                         "resources": [
