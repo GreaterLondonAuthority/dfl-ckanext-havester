@@ -502,8 +502,9 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
                     del resource[key]
 
             if "created" in resource:
-                # Datapress exposes a datetime like YYYY-MM-DDTHH:MM:SS... but
-                # we only want the date portion
+                # London datapress exposes a datetime like
+                # YYYY-MM-DDTHH:MM:SS whilst brent/barnet datapress use an isodate
+                # so always strip to the date portion
                 resource["created"] = resource["created"][:10]
 
             # these URLs are forbidden, so we need to reconstruct the
