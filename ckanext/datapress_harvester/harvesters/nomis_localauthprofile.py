@@ -1,4 +1,5 @@
 import logging
+import re
 import requests
 import hashlib
 import datetime
@@ -29,20 +30,57 @@ log = logging.getLogger(__name__)
 def _generate_resource(dataset, url_key, name):
     """Generate a resource dict for use in a package_dict"""
     resource_id = f'{dataset["resource_id"]}_{url_key}'
-    modified = datetime.datetime.now().isoformat()
-    return {
+    
+    resource =  {
         "id": resource_id,
         "package_id": dataset["package_id"],
         "url": dataset[url_key],
         "name": name,
-        "metadata_modified": modified,
-        "last_modified": modified,
     }
+
+    modified = dataset.get('date_metadata',{}).get('lastupdated')
+
+    resource['last_modified'] = modified
+
+    created = dataset.get('date_metadata',{}).get('firstreleased')
+
+    if created:
+        log.debug(f'Setting resource level created time {created}')
+        resource['upstream_created_at'] = created
+        
+    return resource
+    
 
 
 def _dataset_to_pkgdict(dataset):
     """Convert a scraped dataset to a CKAN package_dict"""
-    modified = datetime.datetime.now().isoformat()
+    
+    upstream_url = dataset["sectionlink"]
+
+    extras = [{"key": "upstream_url",
+               "value": upstream_url }]
+
+    metadata = dataset["date_metadata"]
+    
+    if metadata.get('firstreleased'):
+        extras.append({"key": "upstream_metadata_created",
+                       "value": metadata["firstreleased"]})
+
+    if metadata.get('lastrevised'):
+        extras.append({"key": "upstream_last_revised",
+                       "value": metadata["lastrevised"]})
+            
+    if metadata.get('nextupdate'):        
+        extras.append({"key": "upstream_next_update",
+                       "value": metadata["nextupdate"]})
+
+    #log.debug(f'Times for {dataset["name"]} {metadata}')
+    
+    modified = dataset.get('date_metadata',{}).get('lastupdated')
+    # uncommenting below line in dev will force an update to the
+    # record through
+    #modified = datetime.datetime.now().isoformat()
+    
     return {
         "id": dataset["package_id"],
         "name": dataset["name"],
@@ -54,8 +92,8 @@ def _dataset_to_pkgdict(dataset):
             _generate_resource(dataset, "querylink", "query the nomis data"),
         ],
         "metadata_modified": modified,
-        "upstream_metadata_created": modified,
-        "upstream_metadata_modified": modified,
+        "extras": extras
+        
     }
 
 
@@ -202,6 +240,13 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase, DFLHarvesterMixin):
         name = f"{borough_name} {topic['name']}"
         package_id = f"nomis_{sanitise(name)}"
         resource_id = f"{package_id}_{sanitise(topic['location'])}"
+        querylink_href = querylink["href"]
+        dataset_id = re.search(r'/query/([^/]+)/wizard', querylink_href)[1]
+        nomis_dataset_id = f"NM_{dataset_id.replace('.','_')}"
+        metadata_link = f"https://www.nomisweb.co.uk/api/v01/dataset/{nomis_dataset_id}.overview.json?select=DateMetadata"
+
+        metadata = requests.get(metadata_link).json()["overview"]        
+        
         return {
             "package_id": package_id,
             "resource_id": resource_id,
@@ -213,6 +258,7 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase, DFLHarvesterMixin):
             "license_id": "uk-ogl",
             "content_hash": content_hash,
             "borough_name": borough_name,
+            "date_metadata": metadata # temporarily store all upstream dates here, they will be converted into pkg_dict format later
         }
 
     def gather_stage(self, harvest_job):
@@ -229,20 +275,22 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase, DFLHarvesterMixin):
 
         datasets = []
         for name, code in scraped_boroughs.items():
-            log.info(f"Extracting datasets for {name}")
+
+            # TODO nest try/catch here
             borough_url = NOMIS_LMP_BASE.format(nomis_code=code)
+            log.info(f"Extracting datasets for {name} from {borough_url}")            
             try:
                 borough_page = BeautifulSoup(requests.get(borough_url).content)
-            except requests.exceptions.ConnectionError as e:
+                topics = self._extract_topics(borough_page, borough_url, harvest_job)
+                datasets += [
+                    self._extract_dataset(borough_page, name, code, t, harvest_job)
+                    for t in topics
+                ]
+            except Exception as e:
                 self._save_gather_error(
-                    f"Connection error when getting page for {name}", harvest_job
+                    f"Error resolving datasets for {name} from {borough_url}: {e}", harvest_job
                 )
                 continue
-            topics = self._extract_topics(borough_page, borough_url, harvest_job)
-            datasets += [
-                self._extract_dataset(borough_page, name, code, t, harvest_job)
-                for t in topics
-            ]
 
         if None in datasets:
             self._save_gather_error(
