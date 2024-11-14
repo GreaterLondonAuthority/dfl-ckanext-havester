@@ -233,9 +233,6 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase, DFLHarvesterMixin):
             )
             return None
 
-        md5 = hashlib.md5()
-        content_hash = md5.update(table_content.encode())
-        content_hash = md5.hexdigest()
 
         name = f"{borough_name} {topic['name']}"
         package_id = f"nomis_{sanitise(name)}"
@@ -246,8 +243,8 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase, DFLHarvesterMixin):
         metadata_link = f"https://www.nomisweb.co.uk/api/v01/dataset/{nomis_dataset_id}.overview.json?select=DateMetadata"
 
         metadata = requests.get(metadata_link).json()["overview"]        
-        
-        return {
+
+        upstream_data = {
             "package_id": package_id,
             "resource_id": resource_id,
             "name": name,
@@ -256,10 +253,20 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase, DFLHarvesterMixin):
             + topic["location"],
             "querylink": "https://www.nomisweb.co.uk" + querylink["href"],
             "license_id": "uk-ogl",
-            "content_hash": content_hash,
             "borough_name": borough_name,
             "date_metadata": metadata # temporarily store all upstream dates here, they will be converted into pkg_dict format later
         }
+
+        md5 = hashlib.md5()
+        # Hash all the data we get from upstream
+        content_hash = md5.update(json.dumps(upstream_data).encode())
+        content_hash = md5.hexdigest()
+
+        # Add the content_hash into the data for update detection
+        upstream_data["content_hash"] = content_hash
+        return upstream_data
+
+        
 
     def gather_stage(self, harvest_job):
         self._set_config(harvest_job.source.config)
@@ -337,11 +344,13 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase, DFLHarvesterMixin):
             existing_hash = get_package_extra_val(
                 existing_dataset["extras"], "content_hash"
             )
-            # if existing_hash == scraped_dataset["content_hash"]:
-            #     log.info(
-            #         f"Dataset \"{scraped_dataset['name']}\" has not been changed. Skipping."
-            #     )
-            #     return "unchanged"
+            if existing_hash == scraped_dataset["content_hash"]:
+                log.info(
+                    f"Dataset \"{scraped_dataset['name']}\" has not been changed. Skipping."
+                )
+                return "unchanged"
+            else:
+                log.info(f"Dataset \"{scraped_dataset['name']}\" has changed.")
         # If not, a new dataset needs to be created.
         except tk.ObjectNotFound as e:
             log.info(
