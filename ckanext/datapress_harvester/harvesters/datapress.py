@@ -23,7 +23,7 @@ from ckanext.harvest.model import HarvestObject
 log = logging.getLogger(__name__)
 
 EXTRA_PKG_FIELDS = ['london_smallest_geography', 'update_frequency']
-EXTRA_RESOURCE_FIELDS = ['temporal_coverage_from', 'temporal_coverage_to', 'url', 'timeFrame']
+EXTRA_RESOURCE_FIELDS = ['temporal_coverage_from', 'temporal_coverage_to', 'url', 'timeFrame', 'check_timestamp']
 
 def normalise_ckan_resources(package_dict):
     normalised_resources = package_dict.get('resources',[])
@@ -44,6 +44,14 @@ def normalise_ckan_resources(package_dict):
         return res
 
     normalised_resources = list(map(fixup_id, normalised_resources))
+
+    for resource in normalised_resources:
+        created = resource.pop('created',None)
+        if created:
+            resource['upstream_created_at'] = created
+        else:
+            log.debug(f'No creation time on resource in {package_dict["name"]}' )
+
     package_dict['resources'] = normalised_resources
     
     
@@ -191,10 +199,6 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
                         "value": unprocessed_dataset_dict[field],
                     }
                 ]
-
-        # Update modified date so package is updated in database
-        # (see _create_or_update_package() in harvester plugin)
-        package_dict["metadata_modified"] = strip_time_zone(datetime.now().isoformat())
 
         return package_dict
 
@@ -393,12 +397,13 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
         results = data["result"]
 
         # Get extra fields from DataPress API that aren't present in the datapress package list
-        self.extra_fields_lookup = self._fetch_datapress_extra_fields(
+        extra_fields_lookup = self._fetch_datapress_extra_fields(
             remote_datapress_base_url, request_headers
         )
 
+        # Merge the extra fields from datapress API with the ckan package_dict structure
         for dataset_dict in results:
-            extra_fields = self.extra_fields_lookup.get(dataset_dict["id"], {})
+            extra_fields = extra_fields_lookup.get(dataset_dict["id"], {})
             extra_resource_fields = extra_fields.pop('resources',[])
 
             # Convert extra_resource_fields to a dictionary for faster lookup by res_id
@@ -505,8 +510,9 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
                     del resource[key]
 
             if "created" in resource:
-                # Datapress exposes a datetime like YYYY-MM-DDTHH:MM:SS... but
-                # we only want the date portion
+                # London datapress exposes a datetime like
+                # YYYY-MM-DDTHH:MM:SS whilst brent/barnet datapress use an isodate
+                # so always strip to the date portion
                 resource["created"] = resource["created"][:10]
 
             # these URLs are forbidden, so we need to reconstruct the

@@ -57,9 +57,10 @@ formats = {"application/pdf": "pdf",
            "application/vnd.ms-powerpoint.template.macroEnabled.12": "potm",
            "application/vnd.ms-powerpoint.slideshow.macroEnabled.12": "ppsm",}
 
-def to_iso_date(opendata_date_str):
-    dt = datetime.datetime.strptime(opendata_date_str, "%Y-%m-%dT%H:%M:%S.%fZ")
-    return dt.isoformat()
+date_format = "%Y-%m-%dT%H:%M:%S.%fZ"
+
+def to_datetime(date_str):
+    return datetime.datetime.strptime(date_str, date_format)
 
 class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
     url = None
@@ -119,14 +120,26 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
         license_name = dataset["metadata"].get("license")
         license_id = licenses.get(license_name, license_name)
         ds_id = dataset["resource"]["id"]
-        created_at = to_iso_date(dataset["resource"]["createdAt"])
-        modified_at = to_iso_date(dataset["resource"]["updatedAt"])
+
+        # NOTE: data_updated_at is in at least one record set to None
+        data_updated_at = to_datetime(dataset["resource"]["data_updated_at"] or dataset["resource"]["updatedAt"])
+        modified_at = to_datetime(dataset["resource"]["updatedAt"])
+
+        
+        publication_date = to_datetime(dataset["resource"]["publication_date"])
+        metadata_updated_at = to_datetime(dataset["resource"]["metadata_updated_at"])
+        created_at = to_datetime(dataset["resource"]["createdAt"])
+
+
+        metadata_modified = max(modified_at, publication_date, created_at, data_updated_at
+                                #,datetime.datetime.now() ## Uncomment to force update in dev
+                                )
+
         name = dataset["resource"]["name"]
 
-
         resources = [{"package_id": ds_id,
-                      "created": created_at,
-                      "last_modified": modified_at,
+                      "upstream_created_at": created_at.isoformat(),
+                      "last_modified": data_updated_at.isoformat(),
                       **self._resource_link_info(ds_id, name, dataset["resource"]["blob_mime_type"])}]
         pkg_dict =  {"name": name,
                      "package_id": ds_id,
@@ -139,9 +152,22 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
                      "license_id": license_id,
                      "license_title": license_name,
                      "notes": dataset["resource"]["description"],
-                     "url": dataset["permalink"],
+                     #"url": dataset["permalink"],
                      "state": "active",
-                     "resources": resources}
+                     "resources": resources,
+                     "data_updated_at": data_updated_at.isoformat(),
+                     "metadata_modified": metadata_modified.isoformat(),
+                     "extras": [
+                         {"key": "upstream_url",
+                          "value": dataset["permalink"]},
+                         {"key": "upstream_metadata_created",
+                          "value": created_at.isoformat()},
+                         {"key": "upstream_metadata_modified",
+                          "value": metadata_updated_at.isoformat()},
+                         {"key": "upstream_publication_date",
+                          "value": publication_date.isoformat()}
+                     ]
+                     }
 
         md5 = hashlib.md5()
         content_hash = md5.update(str(pkg_dict).encode())
@@ -175,6 +201,7 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
 
         log.info("Converting datasets into HarvestObjects")
 
+        #catalog_entries = [self._create_catalog_entry(d) for d in datasets[:10]] ## TODO DONT COMMIT ME
         catalog_entries = [self._create_catalog_entry(d) for d in datasets]
 
         source_ds_ids = {d["package_id"] for d in catalog_entries}
@@ -218,12 +245,9 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
 
 
     def _dataset_to_pkgdict(self, dataset):
-        modified = datetime.datetime.now().isoformat()
         return {**dataset,
                 "id": dataset["package_id"],
-                "title": dataset["name"],
-                "upstream_metadata_created": modified,
-                "upstream_metadata_modified": modified,}
+                "title": dataset["name"]}
 
     def modify_package_dict(self, package_dict, harvest_object):
         return package_dict
@@ -288,6 +312,16 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
                         package_dict["extras"], "harvest_source_frequency", harvest_object.source.frequency
                     )
 
+                    # TODO determine if we need this or not
+                    # breakpoint()
+                    # upsert_package_extra(
+                    #     package_dict["extras"], "upstream_metadata_created", harvest_object.source.frequency
+                    # )
+
+                    # upsert_package_extra(
+                    #     package_dict["extras"], "upstream_metadata_modified", harvest_object.source.frequency
+                    # )
+                        
                     result = self._create_or_update_package(package_dict,
                                                             harvest_object,
                                                             package_dict_form="package_show")
