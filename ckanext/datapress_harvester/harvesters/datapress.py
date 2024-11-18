@@ -192,10 +192,6 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
                     }
                 ]
 
-        # Update modified date so package is updated in database
-        # (see _create_or_update_package() in harvester plugin)
-        package_dict["metadata_modified"] = strip_time_zone(datetime.now().isoformat())
-
         return package_dict
 
     def request_jwt_token(self,remote_datapress_base_url):
