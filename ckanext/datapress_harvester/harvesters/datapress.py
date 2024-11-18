@@ -44,6 +44,14 @@ def normalise_ckan_resources(package_dict):
         return res
 
     normalised_resources = list(map(fixup_id, normalised_resources))
+
+    for resource in normalised_resources:
+        created = resource.pop('created',None)
+        if created:
+            resource['upstream_created_at'] = created
+        else:
+            log.debug(f'No creation time on resource in {package_dict["name"]}' )
+
     package_dict['resources'] = normalised_resources
     
     
