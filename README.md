@@ -1,39 +1,32 @@
-[![Tests](https://github.com//ckanext-datapress_harvester/workflows/Tests/badge.svg?branch=main)](https://github.com//ckanext-datapress_harvester/actions)
-
 # ckanext-datapress_harvester
 
-**TODO:** Put a description of your extension here:  What does it do? What features does it have? Consider including some screenshots or embedding a video!
+This repository provides the following four harvester implementations
+used by the Data for London site to fetch data from upstream data
+sources:
 
+- Datapress
+- Nomis
+- Redbridge
+- Soda
+
+This project builds ontop of [CKAN](https://ckan.org/) and the [ckan-harvest extension](https://github.com/ckan/ckanext-harvest)
 
 ## Requirements
 
-**TODO:** For example, you might want to mention here which versions of CKAN this
-extension works with.
-
-If your extension works across different versions you can add the following table:
-
 Compatibility with core CKAN versions:
 
-| CKAN version    | Compatible?   |
-| --------------- | ------------- |
-| 2.6 and earlier | not tested    |
-| 2.7             | not tested    |
-| 2.8             | not tested    |
-| 2.9             | not tested    |
+| CKAN version       | Compatible?   |
+| ------------------ | ------------- |
+| 2.10.0 and earlier | not tested    |
+| 2.10.1             | yes           |
 
-Suggested values:
-
-* "yes"
+* "yes" - This has been tested and is known to work
 * "not tested" - I can't think of a reason why it wouldn't work
 * "not yet" - there is an intention to get it working
-* "no"
+* "no" - this is known not to work (and there is no intention to make it work)
 
 
 ## Installation
-
-**TODO:** Add any additional install steps to the list below.
-   For example installing any non-Python dependencies or adding any required
-   config settings.
 
 To install ckanext-datapress_harvester:
 
