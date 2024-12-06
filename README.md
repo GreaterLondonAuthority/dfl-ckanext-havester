@@ -52,14 +52,7 @@ To install ckanext-datapress_harvester:
 
 ## Config settings
 
-None at present
-
-**TODO:** Document any optional config settings here. For example:
-
-	# The minimum number of hours to wait before re-checking a resource
-	# (optional, default: 24).
-	ckanext.datapress_harvester.some_setting = some_default_value
-
+See [Harvester configuration](./docs/harvester_config.md)
 
 ## Developer installation
 
