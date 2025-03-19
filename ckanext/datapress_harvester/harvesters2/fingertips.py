@@ -35,7 +35,8 @@ class FingertipsCollect(Collector[dict[str, Any]]):
             src_last_updated = max(
                 timestamps, default=None)
 
-        source_descriptive = source_details.get("Descriptive")
+        source_descriptive = source_details["Descriptive"]
+
         return SimpleStandard(
             package_id=f"fingertips-{source_details.get('IID')}",
             title=source_descriptive.get("Name", None),
@@ -111,10 +112,9 @@ class FingertipsHarvester(HarvesterBase):
             all_jobs = []
 
             for url in all_urls:
-                obj = HarvestObject(guid=url, job=harvest_job)
-                obj.save()
-                all_jobs.append(obj.id)
-
+                    obj = HarvestObject(guid=url, job=harvest_job)
+                    obj.save()
+                    all_jobs.append(obj.id) 
             return all_jobs
 
         except Exception as e:
@@ -151,14 +151,17 @@ class FingertipsHarvester(HarvesterBase):
             content = json.loads(harvest_object.content)
 
             for source in content:
-                package_dict = self.collector().transform(
-                    content).as_dfl_package()
+                try:
+                    package_dict = self.collector().transform(
+                        content).as_dfl_package()
 
-                result = self._create_or_update_package(
-                    package_dict,
-                    harvest_object,
-                    package_dict_form="package_show"
-                )
+                    result = self._create_or_update_package(
+                        package_dict,
+                        harvest_object,
+                        package_dict_form="package_show"
+                    )
+                except ValueError as e:
+                    log.error("Couldnt find 'Description' field")
 
             return result
 
