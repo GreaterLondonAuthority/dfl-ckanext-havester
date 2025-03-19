@@ -27,7 +27,7 @@ class FingertipsCollect(Collector[dict[str, Any]]):
     def transform(self, source_details: dict[str, Any]) -> SimpleStandard:
         # find the most recent update between "uploaded" and "deleted" dates
         src_last_updated = None
-        if source_details["DataChange"]:
+        if source_details.get("DataChange"):
 
             timestamps = [datetime.strptime(source_details["DataChange"].get("LastUploadedAt", None), "%Y-%m-%dT%H:%M:%S"),
                           datetime.strptime(source_details["DataChange"].get("LastDeletedAt", None), "%Y-%m-%dT%H:%M:%S")]
@@ -53,37 +53,37 @@ class FingertipsCollect(Collector[dict[str, Any]]):
         )
 
 
-# TESTING
-def collector():
-    return FingertipsCollect()
+# # TESTING
+# def collector():
+#     return FingertipsCollect()
 
 
-urls = collector().gather()
-print(f"urls: {urls}")
+# urls = collector().gather()
+# print(f"urls: {urls}")
 
-print("Fetching metadata...")
-for url in urls:
-    package_data = collector().fetch(url)
+# print("Fetching metadata...")
+# for url in urls:
+#     package_data = collector().fetch(url)
 
-print("\nTransforming metadata...")
-index = 1
-for i, source in enumerate(package_data):
-    try:
-        transformed_source_data = collector().transform(
-            package_data[source])
+# print("\nTransforming metadata...")
+# index = 1
+# for i, source in enumerate(package_data):
+#     try:
+#         transformed_source_data = collector().transform(
+#             package_data[source])
 
-        index = index + 1
+#         index = index + 1
 
-        if i == 800:
-            print(
-                f"SOURCE: \n: {json.dumps(package_data[source], indent = 2)}")
-            print(f"\n TRANSFORMED: \n : {transformed_source_data}")
+#         if i == 800:
+#             print(
+#                 f"SOURCE: \n: {json.dumps(package_data[source], indent = 2)}")
+#             print(f"\n TRANSFORMED: \n : {transformed_source_data}")
 
-    except Exception as e:
-        print(f"error transforming {i+1}th source id: {source}: {e}")
-        raise
+#     except Exception as e:
+#         print(f"error transforming {i+1}th source id: {source}: {e}")
+#         raise
 
-print(f"\n Transformed metadata for {index} sources")
+# print(f"\n Transformed metadata for {index} sources")
 
 # HARVESTER
 
