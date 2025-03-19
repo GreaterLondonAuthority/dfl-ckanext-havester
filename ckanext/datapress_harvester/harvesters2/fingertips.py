@@ -35,25 +35,26 @@ class FingertipsCollect(Collector[dict[str, Any]]):
             src_last_updated = max(
                 timestamps, default=None)
 
+        source_descriptive = source_details.get("Descriptive")
         return SimpleStandard(
             package_id=f"fingertips-{source_details.get('IID')}",
-            title=source_details["Descriptive"].get("Name", None),
-            description=source_details["Descriptive"].get(
+            title=source_descriptive.get("Name", None),
+            description=source_descriptive.get(
                 "Definition", None),
-            author=source_details["Descriptive"].get("DataSource", None),
-            maintainer=source_details["Descriptive"].get(
+            author=source_descriptive.get("DataSource", None),
+            maintainer=source_descriptive.get(
                 "srcSourceLink", None),
-            update_frequency=source_details["Descriptive"].get(
+            update_frequency=source_descriptive.get(
                 "Frequency", None),
             private=False,
-            notes=source_details["Descriptive"].get(
+            notes=source_descriptive.get(
                 "Notes", None),
             # todo: check 'LatestChangeTimestampOverride' response field as alternative
             data_updated_at=src_last_updated,
         )
 
 
-# # TESTING
+# TESTING
 # def collector():
 #     return FingertipsCollect()
 
