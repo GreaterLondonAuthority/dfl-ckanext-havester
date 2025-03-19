@@ -160,8 +160,8 @@ class FingertipsHarvester(HarvesterBase):
                         harvest_object,
                         package_dict_form="package_show"
                     )
-                except ValueError as e:
-                    log.error("Couldnt find 'Description' field")
+                except KeyError as e:
+                    log.error("Couldnt find 'Description' key")
 
             return result
 
