@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional, Any
 
 from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
+from ckanext.datapress_harvester.harvesters2.lib.harvesters import SimpleHarvester
 
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject
@@ -37,7 +38,7 @@ class FingertipsCollect(Collector[dict[str, Any]]):
 
         source_descriptive = source_details["Descriptive"]
 
-        return SimpleStandard(
+        yield SimpleStandard(
             package_id=f"fingertips-{source_details.get('IID')}",
             title=source_descriptive.get("Name", None),
             description=source_descriptive.get(
@@ -90,7 +91,7 @@ class FingertipsCollect(Collector[dict[str, Any]]):
 # HARVESTER
 
 
-class FingertipsHarvester(HarvesterBase):
+class FingertipsHarvester(SimpleHarvester):
 
     @staticmethod
     def collector():
@@ -103,71 +104,3 @@ class FingertipsHarvester(HarvesterBase):
             "title": "Public Health Data API",
             "description": "Harvests from Public Health Data Fingertips API"
         }
-
-    def gather_stage(self, harvest_job):
-        try:
-            log.info(f"Gathering {self.info()['name']}")
-
-            all_urls = self.collector().gather()
-            all_jobs = []
-
-            for url in all_urls:
-                    obj = HarvestObject(guid=url, job=harvest_job)
-                    obj.save()
-                    all_jobs.append(obj.id) 
-            return all_jobs
-
-        except Exception as e:
-            # todo set up proper exceptions
-            logging.error(f"Gather failed: {str(e)}")
-            self._save_gather_error(
-                f"Couldn't gather {self.info()['name']}", harvest_job)
-            raise
-
-    def fetch_stage(self, harvest_object):
-        try:
-            log.info(f"Importing {harvest_object.guid}")
-
-            url = harvest_object.guid
-            content = self.collector().fetch(url)
-
-            harvest_object.content = json.dumps(content)
-            harvest_object.save()
-
-            return True
-
-        except Exception as e:
-            # todo set up proper exceptions
-            logging.error(f"Fetch failed: {str(e)}")
-            self._save_object_error(
-                f"Couldn't fetch {harvest_object.guid}", harvest_object)
-            raise
-
-    def import_stage(self, harvest_object):
-        try:
-
-            log.info(f"Importing {harvest_object.guid}")
-
-            content = json.loads(harvest_object.content)
-
-            for source in content:
-                try:
-                    package_dict = self.collector().transform(
-                        content).as_dfl_package()
-
-                    result = self._create_or_update_package(
-                        package_dict,
-                        harvest_object,
-                        package_dict_form="package_show"
-                    )
-                except KeyError as e:
-                    log.error("Couldnt find 'Description' key")
-
-            return result
-
-        except Exception as e:
-            # todo set up proper exceptions
-            logging.error(f"Import failed: {str(e)}")
-            self._save_object_error(
-                f"Couldn't import {harvest_object.guid}", harvest_object)
-            raise
