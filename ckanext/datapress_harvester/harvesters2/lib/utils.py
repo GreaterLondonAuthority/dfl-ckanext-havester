@@ -107,7 +107,7 @@ T = TypeVar("T")
 class Collector(ABC, Generic[T]):
 
     @abstractmethod
-    def gather(self) -> list[str]:
+    def gather(self) -> Iterable[str]:
         # gather urls which need to be harvested from
         pass
 
@@ -117,10 +117,6 @@ class Collector(ABC, Generic[T]):
         pass
 
     @abstractmethod
-    def transform(self, received: T) -> SimpleStandard:
+    def transform(self, received: T, upstream_url: str, org_name: str) -> Iterable[SimpleStandard]:
         # make any adjustments before import
         pass
-
-    def transform_many(self, received: T) -> Iterable[SimpleStandard]:
-        # implementations should still call transform() to produce each output
-        raise NotImplementedError
