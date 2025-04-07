@@ -36,7 +36,7 @@ class FingertipsCollect(Collector[dict[str, Any]]):
             src_last_updated = max(
                 timestamps, default=None)
 
-        source_descriptive = source_details["Descriptive"]
+        source_descriptive = source_details.get("Descriptive")
 
         yield SimpleStandard(
             package_id=f"fingertips-{source_details.get('IID')}",
