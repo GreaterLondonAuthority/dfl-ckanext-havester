@@ -2,7 +2,7 @@ import json
 import requests
 import logging
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any, Iterable
 
 from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
 from ckanext.datapress_harvester.harvesters2.lib.harvesters import SimpleHarvester
@@ -25,7 +25,7 @@ class FingertipsCollect(Collector[dict[str, Any]]):
     def fetch(self, from_url: str) -> dict[str, Any]:
         return requests.get(from_url).json()
 
-    def transform(self, source_details: dict[str, Any]) -> SimpleStandard:
+    def transform(self, source_details: dict[str, Any],  upstream_url: str, org_name: str) -> Iterable[SimpleStandard]:
         # find the most recent update between "uploaded" and "deleted" dates
         src_last_updated = None
         if source_details.get("DataChange"):
@@ -53,6 +53,8 @@ class FingertipsCollect(Collector[dict[str, Any]]):
                 "Notes", None),
             # todo: check 'LatestChangeTimestampOverride' response field as alternative
             data_updated_at=src_last_updated,
+            upstream_url=upstream_url,
+            org_name=org_name
         )
 
 
