@@ -61,31 +61,6 @@ class UKPNCollect(Collector[dict[str, Any]]):
         return transformed_sources
 
 
-# TESTING
-
-
-# def collector():
-#     return UKPNCollect()
-
-
-# urls = collector().gather()
-# print(f"urls: {urls}")
-
-# print("Fetching metadata...")
-# for url in urls:
-#     package_data = collector().fetch(url)
-
-# print("\nTransforming metadata...")
-
-# transformed_source_data = collector().transform(
-#     package_data, upstream_url="ulr_example", org_name="example_org")
-
-
-# print(f"\n Transformed metadata for {len(transformed_source_data)} sources")
-
-# HARVESTER
-
-
 class UkpnHarvester(SimpleHarvester):
 
     @staticmethod
