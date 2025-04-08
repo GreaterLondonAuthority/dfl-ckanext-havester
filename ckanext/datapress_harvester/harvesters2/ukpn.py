@@ -50,7 +50,8 @@ class UKPNCollect(Collector[dict[str, Any]]):
                 update_frequency=source_data.get(
                     "dublin-core", {}).get("description"),
                 author=source_data.get("dublin-core", {}).get("creator"),
-                org_name=source_data.get("dublin-core", {}).get("publisher"),
+                org_name=org_name,
+                upstream_url=upstream_url,
                 org_link=source_data.get("dublin-core", {}).get("source"),
                 notes=source_data.get("dublin-core", {}).get("description"),
                 data_updated_at=parse_datetime(
