@@ -1,12 +1,9 @@
 import requests
-import logging
 from datetime import datetime
 from typing import Any, Iterable
 
 from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
 from ckanext.datapress_harvester.harvesters2.lib.harvesters import SimpleHarvester
-
-log = logging.getLogger(__name__)
 
 
 def parse_datetime(timestamp):
