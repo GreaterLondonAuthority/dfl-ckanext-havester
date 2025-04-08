@@ -1,12 +1,9 @@
 import requests
-import logging
 from datetime import datetime
 from typing import Any, Iterable
 
 from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
 from ckanext.datapress_harvester.harvesters2.lib.harvesters import SimpleHarvester
-
-log = logging.getLogger(__name__)
 
 
 class FingertipsCollect(Collector[dict[str, Any]]):
@@ -57,29 +54,6 @@ class FingertipsCollect(Collector[dict[str, Any]]):
             ))
 
         return transformed_sources
-
-# TESTING
-
-# def collector():
-#     return FingertipsCollect()
-
-
-# urls = collector().gather()
-# print(f"urls: {urls}")
-
-# print("Fetching metadata...")
-# for url in urls:
-#     content = collector().fetch(url)
-
-# print("\nTransforming metadata...")
-# index = 1
-# transformed_source_data = collector().transform(
-#     content, upstream_url="up_url", org_name="org_example")
-
-# print(transformed_source_data[800])
-# print(f"\n Transformed metadata for {len(transformed_source_data)} sources")
-
-# HARVESTER
 
 
 class FingertipsHarvester(SimpleHarvester):
