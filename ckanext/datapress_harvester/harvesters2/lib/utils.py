@@ -34,6 +34,7 @@ class SimpleStandard:
     maintainer_email: Optional[str] = None
     geography_level: Optional[str] = None
     update_frequency: Optional[str] = None
+    notes: Optional[str] = None
     state: Optional[str] = None
     resources: Optional[list[dict[Any, Any]]] = None
     data_updated_at: Optional[datetime] = None
