@@ -22,7 +22,7 @@ from ckanext.datapress_harvester.util import (
 from .mixins import DFLHarvesterMixin
 log = logging.getLogger(__name__)
 
-REDBRIDGE_API_URL = "http://data.redbridge.gov.uk/api/"
+REDBRIDGE_API_URL = "https://data.redbridge.gov.uk/api/"
 
 
 def _generate_resource(package_id, dataset, is_csv):
@@ -31,12 +31,7 @@ def _generate_resource(package_id, dataset, is_csv):
     if is_csv:
         url = url.replace("XML", "CSV")
 
-    sha1 = hashlib.sha1()
-    resource_id = sha1.update(url.encode())
-    resource_id = sha1.hexdigest()
-
     return {
-        "id": resource_id,
         "package_id": package_id,
         "url": url,
         "name": dataset["Title"],
@@ -143,7 +138,7 @@ class RedbridgeHarvester(HarvesterBase, DFLHarvesterMixin):
                     datasets_metadata = [datasets_metadata]
 
                 for d in datasets_metadata:
-                    full_title = f"Redbrige - {schema_title} - {d['Title']}"
+                    full_title = f"Redbridge - {schema_title} - {d['Title']}"
                     sha1 = hashlib.sha1()
                     package_id = sha1.update(full_title.encode())
                     package_id = sha1.hexdigest()
