@@ -28,8 +28,14 @@ REDBRIDGE_API_URL = "https://data.redbridge.gov.uk/api/"
 def _generate_resource(package_id, dataset, is_csv):
     """Generate a resource dict for use in a package_dict"""
     url = dataset["FriendlyUrl"]
+
+    # the api specifies http - a direct download gets blocked as insecure on chrome and edge in certain hosting setups
+    if url.startswith("http://"):
+        url = url.replace("http://", "https://")
+
     if is_csv:
         url = url.replace("XML", "CSV")
+
 
     return {
         "package_id": package_id,
