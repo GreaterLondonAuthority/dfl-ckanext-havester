@@ -54,7 +54,7 @@ class TflCollect(Collector[dict[str, Any]]):
                 # )
 
         operations.insert(0, response_details['info']['description'])
-        description = "\n".join(operations)
+        description = "<p>".join(operations)
 
         resources =[{
                         "name": f"TfL Unified API",
