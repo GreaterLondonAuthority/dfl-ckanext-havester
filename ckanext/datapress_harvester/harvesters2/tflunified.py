@@ -5,7 +5,7 @@ from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleS
 from ckanext.datapress_harvester.harvesters2.lib.harvesters import SimpleHarvester
 
 
-class TflCollect(Collector[dict[str, Any]]):
+class TflCollect(Collector[str, dict[str, Any]]):
 
     api_version = "2022-04-01-preview"
 
@@ -27,22 +27,27 @@ class TflCollect(Collector[dict[str, Any]]):
 
         api_details = requests.get(from_url, params=params, headers=headers).json()
 
+        # neither the url nor the internal id are included in the response, so include these to send to next step
+        api_details["upstream_id"] = from_url.split("/")[-1]
+        api_details["upstream_url"] = f"{from_url}?api-version={self.api_version}"
+
         return dict(api_details)
 
-    def transform(self, response_details: dict[str, Any], upstream_url: str, org_name: str) -> Iterable[SimpleStandard]:
+    def transform(self, response_details: dict[str, Any], org_name: str) -> Iterable[SimpleStandard]:
 
-        # get upstream id from url (before including args)
-        upstream_id = upstream_url.split("/")[-1]
-        # include version in upstream url
-        upstream_url = f"{upstream_url}?api-version={self.api_version}"
+        # Show the tfl portal for the current api as a resource
+        resources = [{
+            "name": f"TfL Unified API",
+            "url": f"https://api-portal.tfl.gov.uk/api-details#api={response_details['upstream_id']}"
+        }]
 
-        # include path descriptions
+        # include path descriptions in main description
         operations = []
 
         for path, path_details in response_details["paths"].items():
             for method, method_details in path_details.items():
                 operations.append(f"{method.upper()} {path}: {method_details['description']}")
-                # currently not listing as resources since those descriptions don't show in search
+                # currently not listing as resources since resources don't show in search & some require args
                 # operations.append(
                 #     {
                 #         "name": f"{method.upper()} {path}".encode(),
@@ -56,16 +61,11 @@ class TflCollect(Collector[dict[str, Any]]):
         operations.insert(0, response_details['info']['description'])
         description = "<p>".join(operations)
 
-        resources =[{
-                        "name": f"TfL Unified API",
-                        "url": f"https://api-portal.tfl.gov.uk/api-details#api={upstream_id}"
-                    }]
-
         yield SimpleStandard(
-            package_id=SimpleStandard.create_hashed_id(upstream_url + response_details["info"]["title"]),
+            package_id=SimpleStandard.create_hashed_id(response_details["upstream_url"] + response_details["info"]["title"]),
             title=f"TfL Unified API - {response_details['info']['title']}",
             description=description,
-            upstream_url=upstream_url,
+            upstream_url=response_details["upstream_url"],
             resources=resources,
             org_name=org_name
         )
