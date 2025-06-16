@@ -1,3 +1,4 @@
+import json
 import logging
 from abc import abstractmethod
 from typing import Any, Dict
@@ -29,16 +30,26 @@ class SimpleHarvester(HarvesterBase):
         try:
             logging.info(f"Gathering {self.info()['name']}")
 
-            all_urls = self.collector().gather()
+            gathered_items = self.collector().gather()
             all_jobs = []
 
-            for url in all_urls:
-                obj = HarvestObject(guid=SimpleStandard.create_hashed_id(url), job=harvest_job, content=url)
+            for item in gathered_items:
+
+                # expects that the result of Collector.gather() is an appropriate guid & json serializable
+                identifier = json.dumps(item)
+
+                obj = HarvestObject(guid=SimpleStandard.create_hashed_id(identifier),
+                                    job=harvest_job,
+                                    content=item)
                 obj.save()
+
+
 
                 all_jobs.append(obj.id)
 
             return all_jobs
+
+            # todo delete datasets that don't exist in gathered items
 
         except Exception as e:
             # todo set up proper exceptions
@@ -48,14 +59,27 @@ class SimpleHarvester(HarvesterBase):
         return []
 
     def fetch_stage(self, harvest_object):
-        # there doesn't seem to be any particular value to separating fetch and import, so don't overcomplicate
+
+        logging.info(f"Fetching {self.info()['name']}")
+
+        try:
+
+            fetched_content = self.collector().fetch(harvest_object.content)
+            harvest_object.content = fetched_content
+
+        except Exception as e:
+            # todo set up proper exceptions
+            # may be useful https://github.com/GSA/data.gov/wiki/Examples-of-Harvest-Job-Errors
+            logging.error(f"Failed to fetch {harvest_object.guid}: {str(e)}")
+            self._save_object_error(f"Couldn't fetch id {harvest_object.guid}, see logs for detail", harvest_object)
+
+            return False
+
         return True
 
     def import_stage(self, harvest_object):
 
         logging.info(f"Importing {self.info()['name']}")
-
-        source_url = harvest_object.content
 
         try:
 
@@ -70,15 +94,7 @@ class SimpleHarvester(HarvesterBase):
             )
             harvester_org = harvest_source.get("owner_org")
 
-            logging.info(f"Fetching url: {source_url}")
-
-            content = self.collector().fetch(source_url)
-
-            logging.info(f"Mapping content from {source_url} into org {harvester_org}")
-
-            for item in self.collector().transform(content,
-                                                   upstream_url=source_url,  # todo, it may be worth including params
-                                                   org_name=harvester_org):
+            for item in self.collector().transform(harvest_object.content, org_name=harvester_org):
                 package_dict = item.as_dfl_package()
 
                 result = self._create_or_update_package(
@@ -87,14 +103,14 @@ class SimpleHarvester(HarvesterBase):
                     package_dict_form="package_show"
                 )
 
-                logging.info(f"Saved {source_url}: {result}")
+                logging.info(f"Saved {item.title}: {result}")
 
             return True
 
         except Exception as e:
             # todo set up proper exceptions
             # may be useful https://github.com/GSA/data.gov/wiki/Examples-of-Harvest-Job-Errors
-            logging.error(f"Importing {source_url} failed: {str(e)}")
-            self._save_object_error(f"Couldn't import {source_url}, see logs for detail", harvest_object)
+            logging.error(f"Failed to import {harvest_object.guid}: {str(e)}")
+            self._save_object_error(f"Couldn't import id {harvest_object.guid}, see logs for detail", harvest_object)
 
         return False

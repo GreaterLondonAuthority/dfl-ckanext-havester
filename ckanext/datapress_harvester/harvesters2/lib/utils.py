@@ -101,23 +101,24 @@ class SimpleStandard:
         return package
 
 
-# Define child classes w/ e.g. MyClass(Collector[dict]) to enforce T as a dict
-T = TypeVar("T")
+# Define child classes w/ e.g. MyClass(Collector[str, dict]) to enforce first result as str, second result as a dict
+A = TypeVar("A")
+B = TypeVar("B")
 
 
-class Collector(ABC, Generic[T]):
+class Collector(ABC, Generic[A,B]):
 
     @abstractmethod
-    def gather(self) -> Iterable[str]:
-        # gather urls which need to be harvested from
+    def gather(self) -> Iterable[A]:
+        # gather initial items
         pass
 
     @abstractmethod
-    def fetch(self, url: str) -> T:
-        # fetch metadata from required url
+    def fetch(self, received: A) -> B:
+        # fetch any extra metadata per A in gather()
         pass
 
     @abstractmethod
-    def transform(self, received: T, upstream_url: str, org_name: str) -> Iterable[SimpleStandard]:
-        # make any adjustments before import
+    def transform(self, received: B, org_name: str) -> Iterable[SimpleStandard]:
+        # make any adjustments to B received from fetch() and create standardised items
         pass
