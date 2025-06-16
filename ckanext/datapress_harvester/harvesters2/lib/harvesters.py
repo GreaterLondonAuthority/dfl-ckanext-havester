@@ -40,7 +40,7 @@ class SimpleHarvester(HarvesterBase):
                 # should hashing happen in the collector?
                 obj = HarvestObject(guid=SimpleStandard.create_hashed_id(identifier),
                                     job=harvest_job,
-                                    content=item)
+                                    content=json.dumps(item))
                 obj.save()
 
 
@@ -64,8 +64,8 @@ class SimpleHarvester(HarvesterBase):
 
         try:
 
-            fetched_content = self.collector().fetch(harvest_object.content)
-            harvest_object.content = fetched_content
+            fetched_content = self.collector().fetch(json.loads(harvest_object.content))
+            harvest_object.content = json.dumps(fetched_content)
 
         except Exception as e:
             # todo set up proper exceptions
@@ -94,7 +94,7 @@ class SimpleHarvester(HarvesterBase):
             )
             harvester_org = harvest_source.get("owner_org")
 
-            for item in self.collector().transform(harvest_object.content, org_name=harvester_org):
+            for item in self.collector().transform(json.loads(harvest_object.content), org_name=harvester_org):
                 package_dict = item.as_dfl_package()
 
                 result = self._create_or_update_package(
