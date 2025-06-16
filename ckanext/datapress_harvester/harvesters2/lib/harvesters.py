@@ -18,7 +18,7 @@ class SimpleHarvester(HarvesterBase):
 
     @staticmethod
     @abstractmethod
-    def collector() -> Collector[Any]:
+    def collector() -> Collector[Any, Any]:
         pass
 
     @staticmethod
