@@ -35,9 +35,9 @@ class SimpleHarvester(HarvesterBase):
 
             for item in gathered_items:
 
-                # expects that the result of Collector.gather() is an appropriate guid & json serializable
-                identifier = json.dumps(item)
+                identifier = self.collector().gather_identifier(item)
 
+                # should hashing happen in the collector?
                 obj = HarvestObject(guid=SimpleStandard.create_hashed_id(identifier),
                                     job=harvest_job,
                                     content=item)

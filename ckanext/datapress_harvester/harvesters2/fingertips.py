@@ -2,7 +2,7 @@ import requests
 from datetime import datetime
 from typing import Any, Iterable
 
-from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
+from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard, A
 from ckanext.datapress_harvester.harvesters2.lib.harvesters import SimpleHarvester
 
 
@@ -14,6 +14,9 @@ class FingertipsCollect(Collector[dict[str, Any], dict[str, Any]]):
         # fingertips api gives access to metadata for all sources under a single url
         all_meta = requests.get(self.catalogue_url).json()
         return list(all_meta.values())
+
+    def gather_identifier(self, source_data: dict[str, Any]) -> str:
+        return f"{self.catalogue_url}{source_data['IID']}"
 
     def fetch(self, from_url: dict[str, Any]) -> dict[str, Any]:
         return from_url

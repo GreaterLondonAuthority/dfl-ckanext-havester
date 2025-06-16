@@ -114,6 +114,11 @@ class Collector(ABC, Generic[A,B]):
         pass
 
     @abstractmethod
+    def gather_identifier(self, received: A) -> str:
+        # how should a guid be created for each A?
+        pass
+
+    @abstractmethod
     def fetch(self, received: A) -> B:
         # fetch any extra metadata per A in gather()
         pass

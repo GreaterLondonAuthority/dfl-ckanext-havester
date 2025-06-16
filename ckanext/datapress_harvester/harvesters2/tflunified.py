@@ -1,7 +1,7 @@
 import requests
 from typing import Any, Iterable
 
-from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
+from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard, A
 from ckanext.datapress_harvester.harvesters2.lib.harvesters import SimpleHarvester
 
 
@@ -19,6 +19,9 @@ class TflCollect(Collector[str, dict[str, Any]]):
         api_urls = [f"https://api-portal.tfl.gov.uk/developer/apis/{api['id']}" for api in api_details]
 
         return api_urls
+
+    def gather_identifier(self, from_url: str) -> str:
+        return from_url
 
     def fetch(self, from_url: str) -> dict[str, Any]:
 
