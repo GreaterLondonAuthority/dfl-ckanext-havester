@@ -70,5 +70,3 @@ class UkpnHarvester(SimpleHarvester):
             "title": "UK Power Networks API",
             "description": "Harvests from UK Power Networks API"
         }
-
-UKPNCollect.gather

@@ -1,7 +1,7 @@
 import requests
 from typing import Any, Iterable
 
-from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard, A
+from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
 from ckanext.datapress_harvester.harvesters2.lib.harvesters import SimpleHarvester
 
 
