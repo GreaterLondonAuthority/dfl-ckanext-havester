@@ -29,23 +29,19 @@ class UKPNCollect(Collector[dict[str, Any], dict[str, Any]]):
         all_metas = []
         offset = 0
         limit = 100  # Maximum 100 allowed per request
+
+        response = requests.get(self.catalogue_url).json()
+        available_metas = response.get('total_count', 0)
         
-        while True:
+        while len(all_metas) < available_metas:
             # Construct URL with pagination parameters
             paginated_url = f"{self.catalogue_url}?limit={limit}&offset={offset}&include_links=true"
             
             batch_response = requests.get(paginated_url).json()
             batch_results = batch_response.get('results', [])
-                
-            if not batch_results:
-                break
             
             # Append to the list
             all_metas.extend(batch_results)
-                
-            # Check if reached the end of results
-            if len(batch_results) < limit:
-                break
                 
             # Move to next batch
             offset += limit
