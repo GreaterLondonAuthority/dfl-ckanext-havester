@@ -25,10 +25,36 @@ class UKPNCollect(Collector[dict[str, Any], dict[str, Any]]):
     catalogue_url = "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/"
 
     def gather(self) -> list[dict[str, Any]]:
-        # UKPN api gives access to metadata for all sources under a single url
-        all_meta = requests.get(self.catalogue_url).json()
-        meta_results = all_meta.get('results', [])
-        return meta_results
+        """UKPN api gives access to metadata for all sources under a single url with pagination"""
+        all_metas = []
+        offset = 0
+        limit = 100  # Maximum 100 allowed per request
+        
+        while True:
+            # Construct URL with pagination parameters
+            paginated_url = f"{self.catalogue_url}?limit={limit}&offset={offset}&include_links=true"
+            
+            batch_response = requests.get(paginated_url).json()
+            batch_results = batch_response.get('results', [])
+                
+            if not batch_results:
+                break
+            
+            # Append to the list
+            all_metas.extend(batch_results)
+                
+            # Check if reached the end of results
+            if len(batch_results) < limit:
+                break
+                
+            # Move to next batch
+            offset += limit
+                
+            # API documentation mentions offset+limit should be less than 10000
+            if offset > 10000:
+                break
+        
+        return all_metas
     
     def gather_identifier(self, source_data: dict[str, Any]) -> str:
         return f"{self.catalogue_url}{source_data.get('dataset_uid')}"
