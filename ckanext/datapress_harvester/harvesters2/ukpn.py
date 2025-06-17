@@ -20,42 +20,41 @@ def parse_datetime(timestamp):
             continue
 
 
-class UKPNCollect(Collector[dict[str, Any]]):
+class UKPNCollect(Collector[dict[str, Any], dict[str, Any]]):
 
-    def gather(self) -> list[str]:
+    catalogue_url = "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/"
+
+    def gather(self) -> list[dict[str, Any]]:
         # UKPN api gives access to metadata for all sources under a single url
-        api_urls = [
-            "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/"]
+        all_meta = requests.get(self.catalogue_url).json()
+        meta_results = all_meta.get('results', [])
+        return meta_results
+    
+    def gather_identifier(self, source_data: dict[str, Any]) -> str:
+        return f"{self.catalogue_url}{source_data.get('dataset_uid')}"
 
-        return api_urls
+    def fetch(self, from_url: dict[str, Any]) -> dict[str, Any]:
+        return from_url
 
-    def fetch(self, from_url: str) -> dict[str, Any]:
-        response = requests.get(from_url).json()
-        return response['results']
+    def transform(self, source_data: dict[str, Any], org_name: str) -> Iterable[SimpleStandard]:
 
-    def transform(self, sources: dict[str, Any], upstream_url: str, org_name: str) -> Iterable[SimpleStandard]:
-        transformed_sources = []
-        for source in sources:
-            source_data = source["metas"]
+        source_metas = source_data["metas"]
 
-            print(source_data.get("dublin-core", {}).get("title"),)
-            transformed_sources.append(SimpleStandard(
-                package_id=f"ukpn-{source.get('dataset_uid')}",
-                title=source_data.get("dublin-core", {}).get("title"),
-                description=source_data.get(
-                    "dublin-core", {}).get("description"),
-                update_frequency=source_data.get(
-                    "dublin-core", {}).get("description"),
-                author=source_data.get("dublin-core", {}).get("creator"),
-                org_name=org_name,
-                upstream_url=upstream_url,
-                org_link=source_data.get("dublin-core", {}).get("source"),
-                notes=source_data.get("dublin-core", {}).get("description"),
-                data_updated_at=parse_datetime(
-                    source_data.get("dublin-core", {}).get("modified"))
-            ))
-
-        return transformed_sources
+        yield SimpleStandard(
+            package_id=f"ukpn-{source_data.get('dataset_uid')}",
+            title=source_metas.get("dublin-core", {}).get("title"),
+            description=source_metas.get(
+               "dublin-core", {}).get("description"),
+            update_frequency=source_metas.get(
+                "dublin-core", {}).get("description"),
+            author=source_metas.get("dublin-core", {}).get("creator"),
+            org_name=org_name,
+            upstream_url=self.catalogue_url,
+            org_link=source_metas.get("dublin-core", {}).get("source"),
+            notes=source_metas.get("dublin-core", {}).get("description"),
+            data_updated_at=parse_datetime(
+                source_metas.get("dublin-core", {}).get("modified"))
+        )
 
 
 class UkpnHarvester(SimpleHarvester):
@@ -71,3 +70,5 @@ class UkpnHarvester(SimpleHarvester):
             "title": "UK Power Networks API",
             "description": "Harvests from UK Power Networks API"
         }
+
+UKPNCollect.gather
