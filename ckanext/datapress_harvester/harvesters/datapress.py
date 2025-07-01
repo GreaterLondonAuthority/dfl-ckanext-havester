@@ -34,18 +34,12 @@ def normalise_ckan_resources(package_dict):
         # So we harmonise them here
         normalised_resources = package_dict.get('organization',{}).get('resources',[])
 
-    def fixup_id(res):
-        input_id = res['id']
-        # CKAN has a validation that ID's must have a minimum length,
-        # but upstream sources have different rules, so pad ids with
-        # 0's if they're shorter than 7 characters
-        res['id'] = input_id.rjust(7,'0')
-        
-        return res
-
-    normalised_resources = list(map(fixup_id, normalised_resources))
 
     for resource in normalised_resources:
+
+        # let our ckan uniquely id resources by not providing the upstream id
+        resource.pop("id")
+
         created = resource.pop('created',None)
         if created:
             resource['upstream_created_at'] = created
