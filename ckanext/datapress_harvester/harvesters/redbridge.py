@@ -20,6 +20,15 @@ from ckanext.datapress_harvester.util import (
     add_existing_extras,
 )
 from .mixins import DFLHarvesterMixin
+
+"""
+Harvesters are intended to be migrated away from the CKAN harvest extension
+
+This harvester is to be deprecated
+
+If you are creating a new harvester you should create a Collector - see harvesters2/
+"""
+
 log = logging.getLogger(__name__)
 
 REDBRIDGE_API_URL = "https://data.redbridge.gov.uk/api/"

@@ -3,8 +3,6 @@ from datetime import datetime
 from typing import Any, Iterable
 
 from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
-from ckanext.datapress_harvester.harvesters2.lib.harvesters import SimpleHarvester
-
 
 def parse_datetime(timestamp):
     # Function to handle different date formats received in API response
@@ -24,18 +22,19 @@ class UKPNCollect(Collector[dict[str, Any], dict[str, Any]]):
 
     catalogue_url = "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/"
 
-    def gather(self) -> list[dict[str, Any]]:
+    @classmethod
+    def gather(cls) -> list[dict[str, Any]]:
         """UKPN api gives access to metadata for all sources under a single url with pagination"""
-        all_metas = []
+        all_metas: list[dict] = []
         offset = 0
         limit = 100  # Maximum 100 allowed per request
 
-        response = requests.get(self.catalogue_url).json()
+        response = requests.get(cls.catalogue_url).json()
         available_metas = response.get('total_count', 0)
         
         while len(all_metas) < available_metas:
             # Construct URL with pagination parameters
-            paginated_url = f"{self.catalogue_url}?limit={limit}&offset={offset}&include_links=true"
+            paginated_url = f"{cls.catalogue_url}?limit={limit}&offset={offset}&include_links=true"
             
             batch_response = requests.get(paginated_url).json()
             batch_results = batch_response.get('results', [])
@@ -51,14 +50,17 @@ class UKPNCollect(Collector[dict[str, Any], dict[str, Any]]):
                 break
         
         return all_metas
-    
-    def gather_identifier(self, source_data: dict[str, Any]) -> str:
-        return f"{self.catalogue_url}{source_data.get('dataset_uid')}"
 
-    def fetch(self, from_url: dict[str, Any]) -> dict[str, Any]:
+    @classmethod
+    def gather_identifier(cls, source_data: dict[str, Any]) -> str:
+        return f"{cls.catalogue_url}{source_data.get('dataset_uid')}"
+
+    @classmethod
+    def fetch(cls, from_url: dict[str, Any]) -> dict[str, Any]:
         return from_url
 
-    def transform(self, source_data: dict[str, Any], org_name: str) -> Iterable[SimpleStandard]:
+    @classmethod
+    def transform(cls, source_data: dict[str, Any], org_name: str) -> Iterable[SimpleStandard]:
 
         source_metas = source_data["metas"]
 
@@ -71,24 +73,9 @@ class UKPNCollect(Collector[dict[str, Any], dict[str, Any]]):
                 "dublin-core", {}).get("description"),
             author=source_metas.get("dublin-core", {}).get("creator"),
             org_name=org_name,
-            upstream_url=self.catalogue_url,
+            upstream_url=cls.catalogue_url,
             org_link=source_metas.get("dublin-core", {}).get("source"),
             notes=source_metas.get("dublin-core", {}).get("description"),
             data_updated_at=parse_datetime(
                 source_metas.get("dublin-core", {}).get("modified"))
         )
-
-
-class UkpnHarvester(SimpleHarvester):
-
-    @staticmethod
-    def collector():
-        return UKPNCollect()
-
-    @staticmethod
-    def info():
-        return {
-            "name": "ukpn",
-            "title": "UK Power Networks API",
-            "description": "Harvests from UK Power Networks API"
-        }

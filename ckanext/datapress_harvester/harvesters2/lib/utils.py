@@ -108,22 +108,32 @@ B = TypeVar("B")
 
 class Collector(ABC, Generic[A,B]):
 
+    """Collectors form the basis of a pipeline, results of each step being passed to the next
+
+    The class exists in order to use ABC and enforce the pattern
+    It's important to remember steps may be run independently in pipelines in future - hence classmethod
+    """
+
+    @classmethod
     @abstractmethod
-    def gather(self) -> Iterable[A]:
+    def gather(cls) -> Iterable[A]:
         # gather initial items
         pass
 
+    @classmethod
     @abstractmethod
-    def gather_identifier(self, received: A) -> str:
+    def gather_identifier(cls, received: A) -> str:
         # how should a guid be created for each A?
         pass
 
+    @classmethod
     @abstractmethod
-    def fetch(self, received: A) -> B:
+    def fetch(cls, received: A) -> B:
         # fetch any extra metadata per A in gather()
         pass
 
+    @classmethod
     @abstractmethod
-    def transform(self, received: B, org_name: str) -> Iterable[SimpleStandard]:
+    def transform(cls, received: B, org_name: str) -> Iterable[SimpleStandard]:
         # make any adjustments to B received from fetch() and create standardised items
         pass
