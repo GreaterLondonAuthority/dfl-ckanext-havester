@@ -20,6 +20,14 @@ from ckanext.datapress_harvester.util import (
     add_existing_extras
 )
 
+"""
+Harvesters are intended to be migrated away from the CKAN harvest extension
+
+This harvester is to be deprecated
+
+If you are creating a new harvester you should create a Collector - see harvesters2/
+"""
+
 log = logging.getLogger(__name__)
 
 # In ckan, we should be able to add a license list such as

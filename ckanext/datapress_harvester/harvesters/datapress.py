@@ -20,6 +20,15 @@ from ckanext.datapress_harvester.util import (
 from ckanext.harvest.harvesters import HarvesterBase
 from .mixins import DFLHarvesterMixin
 from ckanext.harvest.model import HarvestObject
+
+"""
+Harvesters are intended to be migrated away from the CKAN harvest extension
+
+This harvester is to be deprecated
+
+If you are creating a new harvester you should create a Collector - see harvesters2/
+"""
+
 log = logging.getLogger(__name__)
 
 EXTRA_PKG_FIELDS = ['london_smallest_geography', 'update_frequency']

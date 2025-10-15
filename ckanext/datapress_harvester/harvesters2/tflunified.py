@@ -2,17 +2,17 @@ import requests
 from typing import Any, Iterable
 
 from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
-from ckanext.datapress_harvester.harvesters2.lib.harvesters import SimpleHarvester
 
 
 class TflCollect(Collector[str, dict[str, Any]]):
 
     api_version = "2022-04-01-preview"
 
-    def gather(self) -> list[str]:
+    @classmethod
+    def gather(cls) -> list[str]:
 
         apis_url = "https://api-portal.tfl.gov.uk/developer/apis"
-        params = {"api-version": self.api_version}
+        params = {"api-version": cls.api_version}
 
         api_details = requests.get(apis_url, params=params).json()["value"]
 
@@ -20,23 +20,26 @@ class TflCollect(Collector[str, dict[str, Any]]):
 
         return api_urls
 
-    def gather_identifier(self, from_url: str) -> str:
+    @classmethod
+    def gather_identifier(cls, from_url: str) -> str:
         return from_url
 
-    def fetch(self, from_url: str) -> dict[str, Any]:
+    @classmethod
+    def fetch(cls, from_url: str) -> dict[str, Any]:
 
         headers = {"Accept": "application/vnd.oai.openapi+json"}  # send nothing for a simpler response
-        params = {"export": "true", "api-version": self.api_version}
+        params = {"export": "true", "api-version": cls.api_version}
 
         api_details = requests.get(from_url, params=params, headers=headers).json()
 
         # neither the url nor the internal id are included in the response, so include these to send to next step
         api_details["upstream_id"] = from_url.split("/")[-1]
-        api_details["upstream_url"] = f"{from_url}?api-version={self.api_version}"
+        api_details["upstream_url"] = f"{from_url}?api-version={cls.api_version}"
 
         return dict(api_details)
 
-    def transform(self, response_details: dict[str, Any], org_name: str) -> Iterable[SimpleStandard]:
+    @classmethod
+    def transform(cls, response_details: dict[str, Any], org_name: str) -> Iterable[SimpleStandard]:
 
         # Show the tfl portal for the current api as a resource
         resources = [{
@@ -74,16 +77,3 @@ class TflCollect(Collector[str, dict[str, Any]]):
         )
 
 
-class TflUnifiedHarvester(SimpleHarvester):
-
-    @staticmethod
-    def collector() -> TflCollect:
-        return TflCollect()
-
-    @staticmethod
-    def info() -> dict[str, str]:
-        return {
-            "name": "tfl-unified",
-            "title": "TfL Unified API",
-            "description": "Harvests from TfL's Unified API"
-        }

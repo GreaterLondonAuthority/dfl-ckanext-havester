@@ -4,6 +4,7 @@ from abc import abstractmethod
 from typing import Any, Dict
 
 from ckanext.datapress_harvester.harvesters2.lib.utils import SimpleStandard, Collector
+from ckanext.datapress_harvester.harvesters2 import fingertips,tflunified, ukpn
 
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
@@ -13,6 +14,28 @@ import ckan.plugins.toolkit as toolkit
 
 logging = logging.getLogger(__name__)
 
+
+"""
+SimpleHarvester provides a generalised harvester that runs a Collector
+
+If your source needs extra behaviour, it's preferable to improve SimpleHarvester rather than create many bespoke ones!
+
+Example linking to your collector:
+
+class FingertipsHarvester(SimpleHarvester):
+
+    @staticmethod
+    def collector() -> fingertips.FingertipsCollect:
+        return fingertips.FingertipsCollect()
+
+    @staticmethod
+    def info():
+        return {
+            "name": "fingertips",
+            "title": "Public Health Data API",
+            "description": "Harvests from Public Health Data Fingertips API"
+        }
+"""
 
 class SimpleHarvester(HarvesterBase):
 
@@ -34,7 +57,6 @@ class SimpleHarvester(HarvesterBase):
             all_jobs = []
 
             for item in gathered_items:
-
                 identifier = self.collector().gather_identifier(item)
 
                 # should hashing happen in the collector?
@@ -42,8 +64,6 @@ class SimpleHarvester(HarvesterBase):
                                     job=harvest_job,
                                     content=json.dumps(item))
                 obj.save()
-
-
 
                 all_jobs.append(obj.id)
 
@@ -114,3 +134,48 @@ class SimpleHarvester(HarvesterBase):
             self._save_object_error(f"Couldn't import id {harvest_object.guid}, see logs for detail", harvest_object)
 
         return False
+
+
+class FingertipsHarvester(SimpleHarvester):
+
+    @staticmethod
+    def collector():
+        return fingertips.FingertipsCollect()
+
+    @staticmethod
+    def info():
+        return {
+            "name": "fingertips",
+            "title": "Public Health Data API",
+            "description": "Harvests from Public Health Data Fingertips API"
+        }
+
+
+class TflUnifiedHarvester(SimpleHarvester):
+
+    @staticmethod
+    def collector():
+        return tflunified.TflCollect()
+
+    @staticmethod
+    def info() -> dict[str, str]:
+        return {
+            "name": "tfl-unified",
+            "title": "TfL Unified API",
+            "description": "Harvests from TfL's Unified API"
+        }
+
+
+class UkpnHarvester(SimpleHarvester):
+
+    @staticmethod
+    def collector():
+        return ukpn.UKPNCollect()
+
+    @staticmethod
+    def info():
+        return {
+            "name": "ukpn",
+            "title": "UK Power Networks API",
+            "description": "Harvests from UK Power Networks API"
+        }

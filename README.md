@@ -1,5 +1,14 @@
 # ckanext-datapress_harvester
 
+Data for London harvesters are to be migrated away from the CKAN Harvest Extension
+
+New harvesters should create a Collector in harvesters2/ - see directory for readme and examples
+
+Those in harvesters/ are tangled with the CKAN extension and, although still in use, are to be deprecated
+
+
+# Legacy README
+
 This repository provides the following four harvester implementations
 used by the Data for London site to fetch data from upstream data
 sources:

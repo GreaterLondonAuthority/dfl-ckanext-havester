@@ -8,9 +8,9 @@ setup(
         nomis_localauthprofile=ckanext.datapress_harvester.harvesters:NomisLocalAuthorityProfileScraper
         redbridge_harvester=ckanext.datapress_harvester.harvesters:RedbridgeHarvester
         soda_harvester=ckanext.datapress_harvester.harvesters:SODAHarvester
-        tflunified_harvester=ckanext.datapress_harvester.harvesters2.tflunified:TflUnifiedHarvester
-        ukpn_harvester=ckanext.datapress_harvester.harvesters2.ukpn:UkpnHarvester
-        fingertips_harvester=ckanext.datapress_harvester.harvesters2.fingertips:FingertipsHarvester
+        tflunified_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:TflUnifiedHarvester
+        ukpn_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:UkpnHarvester
+        fingertips_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:FingertipsHarvester
     """,
     # If you are changing from the default layout of your extension, you may
     # have to change the message extractors, you can read more about babel
