@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing import Any, Dict
 
 from ckanext.datapress_harvester.harvesters2.lib.utils import SimpleStandard, Collector
-from ckanext.datapress_harvester.harvesters2 import fingertips,tflunified, ukpn
+from ckanext.datapress_harvester.harvesters2 import fingertips, tflunified, ukpn, tflopen
 
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
@@ -178,4 +178,19 @@ class UkpnHarvester(SimpleHarvester):
             "name": "ukpn",
             "title": "UK Power Networks API",
             "description": "Harvests from UK Power Networks API"
+        }
+
+
+class TflOpenHarvester(SimpleHarvester):
+
+    @staticmethod
+    def collector() -> tflopen.TflOpenCollect:
+        return tflopen.TflOpenCollect()
+
+    @staticmethod
+    def info() -> dict[str, str]:
+        return {
+            "name": "tfl-open-data",
+            "title": "TfL Open Data",
+            "description": "Harvests from TfL's Open Data Summary page"
         }
