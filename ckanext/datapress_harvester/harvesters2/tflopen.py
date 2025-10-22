@@ -6,11 +6,11 @@ from bs4 import BeautifulSoup
 from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
 
 
-class TflOpenCollect(Collector[str, dict[str, Any]]):
+class TflOpenCollect(Collector[dict[str, Any], dict[str, Any]]):
     source_page_url = "https://tfl.gov.uk/info-for/open-data-users/our-open-data"
 
     @classmethod
-    def gather(cls) -> Generator[dict, None, None]:
+    def gather(cls) -> Generator[dict]:
         content = requests.get(cls.source_page_url).text
         soup = BeautifulSoup(content, "html.parser")
 
