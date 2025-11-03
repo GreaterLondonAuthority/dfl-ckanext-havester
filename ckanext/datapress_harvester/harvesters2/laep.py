@@ -33,8 +33,10 @@ class LAEPCollect(Collector[dict[str, Any], dict[str, Any]]):
         resources = []
         for distribution in source_data["dcat:distribution"]:
 
+            # move description to title if there isn't a title
             resource = {
-                "name": distribution.get("dct:title") or distribution.get("dct:description"),
+                "name": distribution.get("dct:title") or distribution.get("dct:description") or source_data["dct:title"],
+                "description": distribution.get("dct:description") if "dct:title" in distribution else "",
                 "format": distribution.get("dct:format", {}).get("@id","")
             }
 
