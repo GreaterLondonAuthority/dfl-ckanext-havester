@@ -1,3 +1,4 @@
+
 import dateutil.parser
 
 import requests
@@ -24,12 +25,35 @@ class LAEPCollect(Collector[dict[str, Any], dict[str, Any]]):
 
     @classmethod
     def transform(cls, source_data: dict[str, Any], org_name: str) -> Iterable[SimpleStandard]:
+
+        # todo simpler dcat parsing method
+
+
+        # not sure how structured title, description, format are
+        resources = []
+        for distribution in source_data["dcat:distribution"]:
+
+            resource = {
+                "name": distribution.get("dct:title") or distribution.get("dct:description"),
+                "format": distribution.get("dct:format", {}).get("@id","")
+            }
+
+            # if no distribution then assume link to main page
+            if "dcat:accessURL" in distribution:
+                resource["url"] = distribution["dcat:accessURL"]["@id"]
+            else:
+                resource["url"] = source_data["dct:landingPage"]
+
+            resources.append(resource)
+
         yield SimpleStandard(
             package_id=SimpleStandard.create_hashed_id(cls.gather_identifier(source_data)),
             org_name=org_name,
             upstream_url=cls.dcat_url,
             title=source_data["dct:title"],
             description=source_data["dct:description"],
+
+            resources=resources,
 
             # datetime.isoformat() works with a trailing z from python3.11 onwards
             upstream_metadata_modified=dateutil.parser.isoparse(source_data["dct:modified"]["@value"]),
