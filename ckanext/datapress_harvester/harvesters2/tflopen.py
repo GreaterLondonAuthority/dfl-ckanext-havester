@@ -7,6 +7,7 @@ from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleS
 
 
 class TflOpenCollect(Collector[dict[str, Any], dict[str, Any]]):
+    clean_missing_upstream = True
     source_page_url = "https://tfl.gov.uk/info-for/open-data-users/our-open-data"
 
     @classmethod

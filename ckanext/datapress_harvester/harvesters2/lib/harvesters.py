@@ -37,6 +37,33 @@ class FingertipsHarvester(SimpleHarvester):
         }
 """
 
+# yoinked from harvesters v1, could be refactored
+def harvester_search_dict(source_id, page, limit):
+    return {
+        "fq": '+harvest_source_id:"{0}"'.format(source_id),
+        "fl": "id",
+        "rows": limit,
+        "start": (page - 1) * limit,
+    }
+
+# yoinked from harvesters v1, could be refactored
+def get_harvested_dataset_ids(harvest_source_id):
+    context = {"model": model, "session": model.Session}
+    page = 1
+    limit = 1000
+    query_result = toolkit.get_action("package_search")(
+        context,
+        harvester_search_dict(harvest_source_id, page, limit),
+    )
+    datasets = query_result["results"]
+    while len(datasets) < query_result["count"]:
+        page += 1
+        datasets += toolkit.get_action("package_search")(
+            context, harvester_search_dict(harvest_source_id, page, limit)
+        )["results"]
+
+    return {d["id"] for d in datasets}
+
 class SimpleHarvester(HarvesterBase):
 
     @staticmethod
@@ -101,6 +128,10 @@ class SimpleHarvester(HarvesterBase):
 
         logging.info(f"Importing {self.info()['name']}")
 
+        retrieved_packages = set()
+
+        success = False
+
         try:
 
             # object.source.publisher_id is left empty so look it up from the api for no reason:|
@@ -115,6 +146,9 @@ class SimpleHarvester(HarvesterBase):
             harvester_org = harvest_source.get("owner_org")
 
             for item in self.collector().transform(json.loads(harvest_object.content), org_name=harvester_org):
+
+                retrieved_packages.add(item.package_id)
+
                 package_dict = item.as_dfl_package()
 
                 result = self._create_or_update_package(
@@ -125,15 +159,36 @@ class SimpleHarvester(HarvesterBase):
 
                 logging.info(f"Saved {item.title}: {result}")
 
-            return True
+            success = True
 
         except Exception as e:
-            # todo set up proper exceptions
+            # todo set up proper exceptions - except Exception needed to report any problem in _save_object_error()
             # may be useful https://github.com/GSA/data.gov/wiki/Examples-of-Harvest-Job-Errors
             logging.error(f"Failed to import {harvest_object.guid}: {str(e)}")
             self._save_object_error(f"Couldn't import id {harvest_object.guid}, see logs for detail", harvest_object)
 
-        return False
+        else:
+            # only clean up if there were no errors - avoid accidental deletes
+
+            # only clean up if a collector explicitly says it's ok to do so
+            if self.collector().clean_missing_upstream:
+                
+                # todo sort out this nested try
+                try:
+                    harvested_datasets_all = get_harvested_dataset_ids(harvest_object.source.id)
+                    harvested_datasets_stale = harvested_datasets_all - retrieved_packages
+
+                    for stale_id in harvested_datasets_stale:
+                        toolkit.get_action("dataset_purge")(
+                            base_context.copy(), {"id": stale_id}
+                        )
+
+                except Exception as e:
+                    logging.error(f"Failed to remove datasets no longer upstream for {harvest_object.guid}: {str(e)}")
+                    self._save_object_error(f"Successfully imported {harvest_object.guid} but failed to remove datasets no longer upstream, see logs for details",
+                                            harvest_object)
+
+        return success
 
 
 class FingertipsHarvester(SimpleHarvester):

@@ -6,7 +6,7 @@ from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleS
 
 
 class FingertipsCollect(Collector[dict[str, Any], dict[str, Any]]):
-
+    clean_missing_upstream = True
     catalogue_url = "https://fingertips.phe.org.uk/api/indicator_metadata/all?include_definition=yes&include_system_content=yes"
 
     @classmethod

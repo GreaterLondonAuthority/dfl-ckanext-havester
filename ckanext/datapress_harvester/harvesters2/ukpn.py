@@ -19,7 +19,7 @@ def parse_datetime(timestamp):
 
 
 class UKPNCollect(Collector[dict[str, Any], dict[str, Any]]):
-
+    clean_missing_upstream = True
     catalogue_url = "https://ukpowernetworks.opendatasoft.com/api/explore/v2.1/catalog/datasets/"
 
     @classmethod

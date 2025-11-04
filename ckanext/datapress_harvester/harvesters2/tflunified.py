@@ -5,7 +5,7 @@ from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleS
 
 
 class TflCollect(Collector[str, dict[str, Any]]):
-
+    clean_missing_upstream = True
     api_version = "2022-04-01-preview"
 
     @classmethod
@@ -75,5 +75,3 @@ class TflCollect(Collector[str, dict[str, Any]]):
             resources=resources,
             org_name=org_name
         )
-
-

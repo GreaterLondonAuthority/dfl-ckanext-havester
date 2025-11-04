@@ -114,6 +114,10 @@ class Collector(ABC, Generic[A,B]):
     It's important to remember steps may be run independently in pipelines in future - hence classmethod
     """
 
+    # this var only exists to prevent accidentally deleting datasets for collectors that don't re-import every dataset
+    # a collector must explicitly state that any dataset not retrieved should be deleted
+    clean_missing_upstream = False
+
     @classmethod
     @abstractmethod
     def gather(cls) -> Iterable[A]:
