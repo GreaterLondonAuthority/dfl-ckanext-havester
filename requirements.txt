@@ -1,5 +1,4 @@
 requests
 beautifulsoup4
 xmltodict
-date
 python-dateutil
