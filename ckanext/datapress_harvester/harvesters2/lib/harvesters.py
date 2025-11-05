@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing import Any, Dict
 
 from ckanext.datapress_harvester.harvesters2.lib.utils import SimpleStandard, Collector
-from ckanext.datapress_harvester.harvesters2 import fingertips, tflunified, ukpn, tflopen
+from ckanext.datapress_harvester.harvesters2 import fingertips, tflunified, ukpn, tflopen, laep
 
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
@@ -193,4 +193,18 @@ class TflOpenHarvester(SimpleHarvester):
             "name": "tfl-open-data",
             "title": "TfL Open Data",
             "description": "Harvests from TfL's Open Data Summary page"
+        }
+
+class LAEPHarvester(SimpleHarvester):
+
+    @staticmethod
+    def collector() -> laep.LAEPCollect:
+        return laep.LAEPCollect()
+
+    @staticmethod
+    def info() -> dict[str, str]:
+        return {
+            "name": "laep",
+            "title": "LAEP",
+            "description": "Harvests from the Local Area Energy Planning datahub"
         }
