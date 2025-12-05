@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing import Any, Dict
 
 from ckanext.datapress_harvester.harvesters2.lib.utils import SimpleStandard, Collector
-from ckanext.datapress_harvester.harvesters2 import fingertips, tflunified, ukpn, tflopen, laep
+from ckanext.datapress_harvester.harvesters2 import fingertips, tflunified, ukpn, tflopen, laep, instantatlas
 
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
@@ -207,4 +207,19 @@ class LAEPHarvester(SimpleHarvester):
             "name": "laep",
             "title": "LAEP",
             "description": "Harvests from the Local Area Energy Planning datahub"
+        }
+
+
+class InstantAtlasHarvester(SimpleHarvester):
+
+    @staticmethod
+    def collector() -> instantatlas.InstantAtlasCollect:
+        return instantatlas.InstantAtlasCollect()
+
+    @staticmethod
+    def info() -> dict[str, str]:
+        return {
+            "name": "instant-atlas",
+            "title": "Instant Atlas",
+            "description": "Harvests from the ESRI InstantAtlas portals"
         }
