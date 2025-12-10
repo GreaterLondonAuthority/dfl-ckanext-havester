@@ -1,9 +1,7 @@
-
 import requests
 from typing import Any, Iterable
 
 from ckanext.datapress_harvester.harvesters2.lib.utils import SimpleStandard, Collector
-
 
 class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
     # Two API endpoints are used here: arc_gis_url to get a list of indicators,
@@ -84,6 +82,10 @@ class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
 
     @classmethod
     def transform(cls, source_data: dict[str, Any], org_name: str) -> Iterable[SimpleStandard]:
+        # Handle required description field being 'null' for some indicators
+        if source_data.get("Description") is None:
+            raise ValueError(
+                "Description needs to be provided for the data source.")
 
         yield SimpleStandard(
             package_id=SimpleStandard.create_hashed_id(
@@ -99,6 +101,5 @@ class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
             private=False,
             geography_level=source_data.get("Spatial"),
             update_frequency=source_data.get("Frequency"),
-            notes=source_data.get("Methodology"),
             data_updated_at=source_data.get("LastUpdated"),
         )
