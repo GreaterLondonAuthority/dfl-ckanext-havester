@@ -1,3 +1,4 @@
+import re
 import requests
 from typing import Any, Iterable
 
@@ -12,6 +13,19 @@ class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
         super().__init__(harvest_url=arc_gis_url)
         self.arc_gis_url = arc_gis_url
         self.instant_atlas_url = "https://hub.instantatlas.com/data-catalog-metadata-service/query"
+
+    def _extract_org_identifier(self, url: str) -> str:
+        """Extract organization identifier from ArcGIS URL.
+        
+        Example: https://services1.arcgis.com/HumUw0sDQHwJuboT/arcgis/rest/services/Hounslow_MasterTable/FeatureServer/0/query
+        Returns: Hounslow_MasterTable
+        """
+        # Match the service name before /FeatureServer
+        match = re.search(r'/services/([^/]+)/FeatureServer', url)
+        if match:
+            return match.group(1)
+        # Fallback: use the entire URL hash if pattern doesn't match
+        return SimpleStandard.create_hashed_id(url)[:8]
 
     def gather(self) -> list[dict[str, Any]]:
         # Gather all indicators
@@ -76,7 +90,10 @@ class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
         return flattened_metadata
 
     def gather_identifier(self, source_data: dict[str, Any]) -> str:
-        return source_data["IndicatorID"]
+        # Create unique identifier combining org and indicator to avoid id duplication across different orgs
+        indicator_id = source_data["IndicatorID"]
+        org_identifier = self._extract_org_identifier(self.arc_gis_url)
+        return f"{org_identifier}_{indicator_id}"
 
     def fetch(self, source_data: dict[str, Any]) -> dict[str, Any]:
         return source_data
