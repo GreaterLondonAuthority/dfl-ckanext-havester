@@ -37,7 +37,21 @@ class FingertipsHarvester(SimpleHarvester):
         }
 """
 
+
 class SimpleHarvester(HarvesterBase):
+
+    def _set_config(self, config_str) -> None:
+        # Handle empty config string
+        if not config_str or not config_str.strip():
+            self.config = {}
+        else:
+            self.config = json.loads(config_str)
+
+            if 'url' in self.config:
+                # Set url from config if it is provided
+                logging.debug(
+                    f"Using URL parameter from harvester config: {self.config['url']}")
+                self.url = self.config['url']
 
     @staticmethod
     @abstractmethod
@@ -52,6 +66,8 @@ class SimpleHarvester(HarvesterBase):
     def gather_stage(self, harvest_job):
         try:
             logging.info(f"Gathering {self.info()['name']}")
+
+            self._set_config(harvest_job.source.config)
 
             gathered_items = self.collector().gather()
             all_jobs = []
@@ -74,13 +90,16 @@ class SimpleHarvester(HarvesterBase):
         except Exception as e:
             # todo set up proper exceptions
             logging.error(f"Gather failed: {str(e)}")
-            self._save_gather_error(f"Couldn't gather {self.info()['name']}", harvest_job)
+            self._save_gather_error(
+                f"Couldn't gather {self.info()['name']}", harvest_job)
 
         return []
 
     def fetch_stage(self, harvest_object):
 
         logging.info(f"Fetching {self.info()['name']}")
+
+        self._set_config(harvest_object.source.config)
 
         try:
 
@@ -91,7 +110,8 @@ class SimpleHarvester(HarvesterBase):
             # todo set up proper exceptions
             # may be useful https://github.com/GSA/data.gov/wiki/Examples-of-Harvest-Job-Errors
             logging.error(f"Failed to fetch {harvest_object.guid}: {str(e)}")
-            self._save_object_error(f"Couldn't fetch id {harvest_object.guid}, see logs for detail", harvest_object)
+            self._save_object_error(
+                f"Couldn't fetch id {harvest_object.guid}, see logs for detail", harvest_object)
 
             return False
 
@@ -131,7 +151,8 @@ class SimpleHarvester(HarvesterBase):
             # todo set up proper exceptions
             # may be useful https://github.com/GSA/data.gov/wiki/Examples-of-Harvest-Job-Errors
             logging.error(f"Failed to import {harvest_object.guid}: {str(e)}")
-            self._save_object_error(f"Couldn't import id {harvest_object.guid}, see logs for detail", harvest_object)
+            self._save_object_error(
+                f"Couldn't import id {harvest_object.guid}, see logs for detail", harvest_object)
 
         return False
 
@@ -195,6 +216,7 @@ class TflOpenHarvester(SimpleHarvester):
             "description": "Harvests from TfL's Open Data Summary page"
         }
 
+
 class LAEPHarvester(SimpleHarvester):
 
     @staticmethod
@@ -212,9 +234,17 @@ class LAEPHarvester(SimpleHarvester):
 
 class InstantAtlasHarvester(SimpleHarvester):
 
-    @staticmethod
-    def collector() -> instantatlas.InstantAtlasCollect:
-        return instantatlas.InstantAtlasCollect()
+    def _set_config(self, config_str) -> None:
+        super()._set_config(config_str)
+        # InstantAtlas requires URL in config
+        if not self.config.get('url'):
+            raise ValueError(
+                "InstantAtlasHarvester requires 'url' in configuration. "
+                "Please ensure config contains a valid 'url' parameter.")
+
+    def collector(self) -> instantatlas.InstantAtlasCollect:
+        # return a collector instance passing the provided url from config
+        return instantatlas.InstantAtlasCollect(self.url)
 
     @staticmethod
     def info() -> dict[str, str]:

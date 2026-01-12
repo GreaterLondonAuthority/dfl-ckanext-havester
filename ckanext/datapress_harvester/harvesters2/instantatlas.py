@@ -4,13 +4,16 @@ from typing import Any, Iterable
 from ckanext.datapress_harvester.harvesters2.lib.utils import SimpleStandard, Collector
 
 class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
-    # Two API endpoints are used here: arc_gis_url to get a list of indicators,
+    # Two API endpoints are used here: arc_gis_url (from harvester config json parameter 'url') to get a list of indicators,
     # and instant_atlas_url to get detailed metadata for each indicator.
-    arc_gis_url = "https://services1.arcgis.com/HumUw0sDQHwJuboT/arcgis/rest/services/Richmond_upon_Thames_MasterTable/FeatureServer/0/query"
-    instant_atlas_url = "https://hub.instantatlas.com/data-catalog-metadata-service/query"
 
-    @classmethod
-    def gather(cls) -> list[dict[str, Any]]:
+    def __init__(self, arc_gis_url: str) -> None:
+        # Pass the URL up to the base Collector class as harvest_url
+        super().__init__(harvest_url=arc_gis_url)
+        self.arc_gis_url = arc_gis_url
+        self.instant_atlas_url = "https://hub.instantatlas.com/data-catalog-metadata-service/query"
+
+    def gather(self) -> list[dict[str, Any]]:
         # Gather all indicators
         page_size = 2000
         current_offset = 0
@@ -27,7 +30,7 @@ class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
                 'returnDistinctValues': 'true'
             }
 
-            arc_gis_resp = requests.get(cls.arc_gis_url, params=ag_params)
+            arc_gis_resp = requests.get(self.arc_gis_url, params=ag_params)
             arc_gis_resp.raise_for_status()
             # Consider renaming variable for clarity or moving json() call directly into features extraction
             feature_data = arc_gis_resp.json()
@@ -60,7 +63,7 @@ class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
                 'resultOffset': 0
             }
             instant_atlas_resp = requests.get(
-                cls.instant_atlas_url, params=ia_params)
+                self.instant_atlas_url, params=ia_params)
             instant_atlas_resp.raise_for_status()
             instant_atlas_data = instant_atlas_resp.json()
             batch_features = instant_atlas_data.get('features', [])
@@ -72,16 +75,13 @@ class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
 
         return flattened_metadata
 
-    @classmethod
-    def gather_identifier(cls, source_data: dict[str, Any]) -> str:
+    def gather_identifier(self, source_data: dict[str, Any]) -> str:
         return source_data["IndicatorID"]
 
-    @classmethod
-    def fetch(cls, source_data: dict[str, Any]) -> dict[str, Any]:
+    def fetch(self, source_data: dict[str, Any]) -> dict[str, Any]:
         return source_data
 
-    @classmethod
-    def transform(cls, source_data: dict[str, Any], org_name: str) -> Iterable[SimpleStandard]:
+    def transform(self, source_data: dict[str, Any], org_name: str) -> Iterable[SimpleStandard]:
         # Handle required description field being 'null' for some indicators
         if source_data.get("Description") is None:
             raise ValueError(
@@ -89,10 +89,10 @@ class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
 
         yield SimpleStandard(
             package_id=SimpleStandard.create_hashed_id(
-                cls.gather_identifier(source_data)),
+                self.gather_identifier(source_data)),
             org_name=org_name,
             # using instant atlas metadata service as upstream url
-            upstream_url=cls.instant_atlas_url,
+            upstream_url=self.instant_atlas_url,
             title=source_data.get("Title", ""),
             description=source_data.get("Description", ""),
             url=source_data.get("Source_URL", ""),
