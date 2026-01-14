@@ -9,8 +9,8 @@ class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
     # and instant_atlas_url to get detailed metadata for each indicator.
 
     def __init__(self, arc_gis_url: str) -> None:
-        # Pass the URL up to the base Collector class as harvest_url
-        super().__init__(harvest_url=arc_gis_url)
+        # Pass the URL up to the base Collector class as target_url
+        super().__init__(target_url=arc_gis_url)
         self.arc_gis_url = arc_gis_url
         self.instant_atlas_url = "https://hub.instantatlas.com/data-catalog-metadata-service/query"
 
