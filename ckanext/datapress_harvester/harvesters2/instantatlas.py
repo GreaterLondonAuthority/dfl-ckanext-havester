@@ -32,8 +32,9 @@ class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
         page_size = 2000
         current_offset = 0
         all_features: list[dict[str, Any]] = []
+        max_iterations = 1000  # safeguard to prevent infinite loops from API changes
 
-        while True:
+        for _ in range(max_iterations):
             ag_params = {
                 # request the specific fields we need
                 'f': 'json',
@@ -60,6 +61,10 @@ class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
                 break
 
             current_offset += len(features)
+
+        else:
+            raise RuntimeError(
+                "Max iterations reached while gathering indicators. The external API may have changed behavior.")
 
         feature_ids = [feature['attributes']['ID'] for feature in all_features]
 
