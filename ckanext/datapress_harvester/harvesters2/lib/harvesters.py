@@ -244,7 +244,7 @@ class InstantAtlasHarvester(SimpleHarvester):
 
     def collector(self) -> instantatlas.InstantAtlasCollect:
         # return a collector instance passing the provided url from config
-        return instantatlas.InstantAtlasCollect(self.url)
+        return instantatlas.InstantAtlasCollect(arc_gis_url=self.url)
 
     @staticmethod
     def info() -> dict[str, str]:
