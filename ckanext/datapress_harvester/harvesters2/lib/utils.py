@@ -115,7 +115,7 @@ class Collector(ABC, Generic[A,B]):
     """
 
     def __init__(self, target_url: Optional[str] = None) -> None:
-        self.target_url = target_url
+        self._target_url = target_url
 
     @classmethod
     @abstractmethod
