@@ -114,6 +114,9 @@ class Collector(ABC, Generic[A,B]):
     It's important to remember steps may be run independently in pipelines in future - hence classmethod
     """
 
+    def __init__(self, target_url: Optional[str] = None) -> None:
+        self._target_url = target_url
+
     @classmethod
     @abstractmethod
     def gather(cls) -> Iterable[A]:
