@@ -47,11 +47,16 @@ class SimpleHarvester(HarvesterBase):
         else:
             self.config = json.loads(config_str)
 
-            if 'url' in self.config:
+            if 'url_arc_gis' in self.config and 'url_source' in self.config and 'themes_tab' in self.config:
                 # Set url from config if it is provided
-                logging.debug(
-                    f"Using URL parameter from harvester config: {self.config['url']}")
-                self.url = self.config['url']
+                logging.debug(f"Using URL parameters from harvester config:\n"
+                              f"url_source: {self.config['url_source']}\n"
+                              f"url_arc_gis: {self.config['url_arc_gis']}\n"
+                              f"themes_tab: {self.config['themes_tab']}"
+                              )
+                self.url_source = self.config['url_source']
+                self.url_arc_gis = self.config['url_arc_gis']
+                self.themes_tab = self.config['themes_tab']
 
     @staticmethod
     @abstractmethod
@@ -236,15 +241,15 @@ class InstantAtlasHarvester(SimpleHarvester):
 
     def _set_config(self, config_str) -> None:
         super()._set_config(config_str)
-        # InstantAtlas requires URL in config
-        if not self.config.get('url'):
+        # InstantAtlas harvester requires mandatory parameters in config
+        if not self.config.get('url_arc_gis') or not self.config.get('url_source') or not self.config.get('themes_tab'):
             raise ValueError(
-                "InstantAtlasHarvester requires 'url' in configuration. "
-                "Please ensure config contains a valid 'url' parameter.")
+                "InstantAtlasHarvester requires 'url_arc_gis', 'url_source', and 'themes_tab' in configuration. Please ensure config contains valid config parameters.")
 
     def collector(self) -> instantatlas.InstantAtlasCollect:
         # return a collector instance passing the provided url from config
-        return instantatlas.InstantAtlasCollect(arc_gis_url=self.url)
+        return instantatlas.InstantAtlasCollect(arc_gis_url=self.url_arc_gis, source_page_url=self.url_source,
+                                                themes_tab=self.themes_tab)
 
     @staticmethod
     def info() -> dict[str, str]:
