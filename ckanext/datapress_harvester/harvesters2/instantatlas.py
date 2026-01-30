@@ -1,10 +1,13 @@
 import re
 import requests
+import logging
 from typing import Any, Iterable
 
 from bs4 import BeautifulSoup
 
 from ckanext.datapress_harvester.harvesters2.lib.utils import SimpleStandard, Collector
+
+logging = logging.getLogger(__name__)
 
 class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
     """Collector for Instant Atlas based data portals.
@@ -21,22 +24,23 @@ class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
     {
         "url_source": "https://www.croydonobservatory.org/",
         "url_arc_gis": "https://services1.arcgis.com/HumUw0sDQHwJuboT/arcgis/rest/services/Croydon_MasterTable/FeatureServer/0/query",
-        "themes_tab": "Croydon Profile"
+        "target_tabs": ["Croydon Profile", "Census 2021", "Equalities", "Health and Wellbeing"]
     }
     """
 
-    def __init__(self, source_page_url: str, arc_gis_url: str, themes_tab: str) -> None:
+    def __init__(self, source_page_url: str, arc_gis_url: str, target_tabs: Iterable[str]) -> None:
         # Pass the configuration up to the base Collector class
         super().__init__(target_source_url=source_page_url,
-                         target_arc_gis_url=arc_gis_url, themes_tab=themes_tab)
+                         target_arc_gis_url=arc_gis_url, target_tabs=target_tabs)
 
         self.source_page_url = source_page_url
         self.arc_gis_url = arc_gis_url
-        self.themes_tab = themes_tab
+        self.target_tabs = target_tabs
         # Instant Atlas metadata service URL, same for all portals
         self.instant_atlas_url = "https://hub.instantatlas.com/data-catalog-metadata-service/query"
 
     def _extract_org_identifier(self, url: str) -> str:
+
         """Extract organization identifier from ArcGIS URL.
         
         Example: https://services1.arcgis.com/HumUw0sDQHwJuboT/arcgis/rest/services/Hounslow_MasterTable/FeatureServer/0/query
@@ -108,6 +112,7 @@ class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
                 'where': where_clause,
                 'resultOffset': 0
             }
+
             instant_atlas_resp = requests.get(
                 self.instant_atlas_url, params=ia_params)
             instant_atlas_resp.raise_for_status()
@@ -120,96 +125,122 @@ class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
                               for f in all_metadata_features if 'attributes' in f]
         return flattened_metadata
 
-    def _gather_from_themes_pages(self) -> list[dict[str, Any]]:
-        """Gathers metadata by scraping themes pages from the source portal website.
-        
-        **Note:** This assumes a specific HTML structure for the portal pages. 
-        Currently does not work for portals that rely on JavaScript injected report content to extract metadata from. 
-        """
-
-        # Add headers to mimic a real browser request (otherwise it is blocked by the server)
+    def _get_soup(self, url: str) -> BeautifulSoup:
+        '''Fetches the HTML content of a URL and returns a BeautifulSoup object.'''
         headers = {
             "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/117.0"
         }
-        content = requests.get(self.source_page_url, headers=headers).text
-        soup = BeautifulSoup(content, "html.parser")
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        return BeautifulSoup(response.text, "html.parser")
 
-        # Extract theme page URLs
-        theme_urls = []
+    def _extract_urls_from_nav_tabs(self, soup: BeautifulSoup, tab_names: Iterable[str]) -> list[str]:
+        """Extracts URLs from navigation tabs on the portal page.
+        Args:
+            soup (BeautifulSoup): Parsed HTML of the portal page.
+            tab_names (Iterable[str]): Names of the top-level navigation tabs to search for.
+        Returns:
+            list[str]: List of extracted URLs from the specified tabs.
+        """
 
-        themes_tab_link = soup.find("a", string=self.themes_tab)
+        page_urls: list[str] = []
 
-        if not themes_tab_link:
-            raise ValueError(
-                f"No matching themes tab with the name:'{self.themes_tab}' found on source page. Possible harvester configuration error.")
+        for tab_name in tab_names:
+            link = soup.find("a", string=tab_name)
 
-        parent_li = themes_tab_link.find_parent(
-            "li") if themes_tab_link else None
-        theme_list_elements = parent_li.find_all("li") if parent_li else []
+            if not link:
+                logging.error(
+                    f"Navigation tab '{tab_name}' not found in the page. Skipping...")
+                continue
 
-        for list_element in theme_list_elements:
-            link_element = list_element.find("a")
-            href = link_element.get("href") if link_element else None
+            parent_li = link.find_parent("li")
+            if not parent_li:
+                continue
 
-            if href and href != '#':
-                theme_urls.append(href)
+            # Case 1: tab has a submenu → collect all child links
+            submenu = parent_li.find("ul", class_="sub-menu")
+            if submenu:
+                for li in submenu.find_all("li"):
+                    a = li.find("a")
+                    href = a.get("href") if a else None
+                    if href and href != "#":
+                        page_urls.append(href)
 
-        # For each theme page, extract metadata
-        all_theme_metadata = []
-        for theme_url in theme_urls:
-            theme_content = requests.get(theme_url, headers=headers).text
-            theme_soup = BeautifulSoup(theme_content, "html.parser")
+            # Case 2: tab is a direct link
+            else:
+                href = link.get("href")
+                if href and href != "#":
+                    page_urls.append(href)
 
-            # Extract description
-            theme_desc_elements = []
+        # Remove potential duplicates
+        unique_urls = set(page_urls)
+        return list(unique_urls)
 
-            for content_div in theme_soup.find_all("div", class_="entry-content"):
-                parapraphs = content_div.find_all("p")
+    def _extract_page_metadata(self, soup: BeautifulSoup, url: str) -> dict[str, Any]:
+        '''Extracts metadata (title and description) from a given page's HTML soup.
+        Args:
+            soup (BeautifulSoup): Parsed HTML of the page.
+            url (str): URL of the page (used for source/upstream URL fields).
+        Returns:
+            dict[str, Any]: Extracted metadata
+        '''
 
-                if not parapraphs:
-                    # Set to None if no description paragraphs found so it is consistent with API returned metadata and can be handled appropriately at transform stage
-                    # Should there be a default value instead in order to still harvest the resource?
-                    theme_desc_elements = None
-                    continue
+        desc_elements: list[str] | None = []
 
-                for p in parapraphs:
-                    text = p.get_text(strip=True)
-                    # Skip empty paragraphs
-                    if not text:
-                        continue
+        for content_div in soup.find_all("div", class_="entry-content"):
+            paragraphs = content_div.find_all("p")
 
-                    # TODO: Description extraction is imperfect, may need further refinement to avoid unrelated text in some cases.
-                    if theme_desc_elements is not None:
-                        theme_desc_elements.append(text)
+            if not paragraphs:
+                desc_elements = None
+                continue
 
-            theme_desc = "\n\n".join(
-                theme_desc_elements) if theme_desc_elements else None
+            for p in paragraphs:
+                text = p.get_text(strip=True)
+                if text and desc_elements is not None:
+                    desc_elements.append(text)
 
-            # Extract title
-            title_element = theme_soup.select_one(
-                "header.page-header .page-title")
-            theme_title = title_element.get_text(
-                strip=True) if title_element else None
+        description = "\n\n".join(desc_elements) if desc_elements else None
 
-            theme_metadata: dict[str, Any] = {
-                "Title": theme_title,
-                "Description": theme_desc,
-                "Source_URL": theme_url,
-                "Upstream_URL": theme_url}
+        title_el = soup.select_one("header.page-header .page-title")
+        title = title_el.get_text(strip=True) if title_el else None
 
-            all_theme_metadata.append(theme_metadata)
+        return {
+            "Title": title,
+            "Description": description,
+            "Source_URL": url,
+            "Upstream_URL": url,
+        }
 
-        return all_theme_metadata
+    def _gather_from_general_pages(self, tab_names: Iterable[str]) -> list[dict[str, Any]]:
+        """Gathers metadata from general pages under specified navigation tabs.
+        Args:
+            tab_names (Iterable[str]): Names of the top-level navigation tabs to gather from.
+        Returns:
+            list[dict[str, Any]]: List of gathered metadata dictionaries.
+        """
+
+        all_page_metadata = []
+
+        soup = self._get_soup(self.source_page_url)
+        urls = self._extract_urls_from_nav_tabs(soup, tab_names)
+
+        for url in urls:
+            page_soup = self._get_soup(url)
+            page_metadata = self._extract_page_metadata(page_soup, url)
+
+            all_page_metadata.append(page_metadata)
+
+        return all_page_metadata
 
     def gather(self) -> list[dict[str, Any]]:
-        # SOURCE 1: Gather metadata from themes pages via scraping
-        themes_metadata = self._gather_from_themes_pages()
+        # SOURCE 1: Gather metadata from general pages via scraping
+        pages_metadata = self._gather_from_general_pages(self.target_tabs)
 
         # SOURCE 2: Gather metadata from Data Explorer via ArcGIS API
         data_explorer_metadata = self._gather_from_data_explorer()
 
         # Combine all metadata sources
-        all_gathered_metadata = themes_metadata + data_explorer_metadata
+        all_gathered_metadata = pages_metadata + data_explorer_metadata
 
         return all_gathered_metadata
 
