@@ -17,7 +17,7 @@ class InstantAtlasCollect(Collector[dict[str, Any], dict[str, Any]]):
     Configurable with three required parameters:
     - source_page_url: URL of the main portal page containing themes links
     - arc_gis_url: URL of the ArcGIS FeatureServer query endpoint for data explorer
-    - themes_tab: Name of the top-level tab on the portal page that contains theme links
+    - target_tabs: Name of the top-level tab on the portal page that contains theme links
     
     Example json config string:
     .. code-block:: json
