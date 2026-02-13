@@ -2,9 +2,6 @@ import os
 import subprocess
 import shutil
 import json
-import logging
-
-logging = logging.getLogger(__name__)
 
 from typing import Any, Iterable
 
@@ -15,9 +12,7 @@ class DafniCollect(Collector[dict[str, Any], dict[str, Any]]):
 
     @classmethod
     def gather(cls) -> list[dict[str, Any]]:
-        logging.info("Gathering DAFNI datasets...")
-        logging.info("DAFNI_USERNAME: %s", os.environ["DAFNI_USERNAME"])
-        logging.info("DAFNI_PASSWORD: %s", os.environ["DAFNI_PASSWORD"])
+
         search_term = "OpenClim"
 
         # Get filtered datasets via the DAFNI cli
@@ -28,8 +23,7 @@ class DafniCollect(Collector[dict[str, Any], dict[str, Any]]):
         process = subprocess.run([dafni_path, "get", "datasets", "--search", search_term,
                                  "-j"], capture_output=True, text=True, check=True, env=os.environ)
         content = json.loads(process.stdout)
-        print(
-            f"Found {len(content['metadata'])} datasets matching search term '{search_term}'")
+
         return content["metadata"]
 
     @classmethod
@@ -52,10 +46,3 @@ class DafniCollect(Collector[dict[str, Any], dict[str, Any]]):
             author=source_data["source"],
             data_updated_at=source_data["modified_date"]
         )
-
-
-# collector = DafniCollect()
-
-# metadata = collector.gather()
-
-# print(json.dumps(metadata, indent=2))
