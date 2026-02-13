@@ -9,6 +9,13 @@ from ckanext.datapress_harvester.harvesters2.lib.utils import SimpleStandard, Co
 
 
 class DafniCollect(Collector[dict[str, Any], dict[str, Any]]):
+    """
+    Collector for DAFNI datasets related to OpenClim. This harvester uses the DAFNI CLI to fetch datasets that match the search term "OpenClim".
+    
+    Requires following environment variables to be set for DAFNI CLI authentication to a service account:
+    - DAFNI_USERNAME
+    - DAFNI_PASSWORD
+    """
 
     @classmethod
     def gather(cls) -> list[dict[str, Any]]:
@@ -21,7 +28,13 @@ class DafniCollect(Collector[dict[str, Any], dict[str, Any]]):
             raise RuntimeError("dafni CLI not found on PATH")
 
         process = subprocess.run([dafni_path, "get", "datasets", "--search", search_term,
-                                 "-j"], capture_output=True, text=True, check=True, env=os.environ)
+                                  "-j"], capture_output=True, text=True, check=False, env=os.environ)
+
+        # Check return code manually and extract message from stdout and stderr
+        if process.returncode != 0:
+            error_msg = process.stdout + "\n" + process.stderr
+            raise RuntimeError(f"Error running dafni CLI: {error_msg}")
+
         content = json.loads(process.stdout)
 
         return content["metadata"]
