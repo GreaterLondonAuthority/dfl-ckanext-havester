@@ -268,18 +268,3 @@ class DafniOpenClimHarvester(SimpleHarvester):
             "title": "DAFNI OpenCLIM",
             "description": "Harvests OpenCLIM data from the DAFNI cli"
         }
-
-
-class TestHarvester(SimpleHarvester):
-
-    @staticmethod
-    def collector():
-        pass
-
-    @staticmethod
-    def info() -> dict[str, str]:
-        return {
-            "name": "test-harvester",
-            "title": "Test Harvester",
-            "description": "Harvester used for testing"
-        }
