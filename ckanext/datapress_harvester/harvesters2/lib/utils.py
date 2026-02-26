@@ -114,8 +114,10 @@ class Collector(ABC, Generic[A,B]):
     It's important to remember steps may be run independently in pipelines in future - hence classmethod
     """
 
-    def __init__(self, target_url: Optional[str] = None) -> None:
-        self._target_url = target_url
+    def __init__(self, target_source_url: Optional[str] = None, target_arc_gis_url: Optional[str] = None, target_tabs: Optional[Iterable[str]] = None) -> None:
+        self._target_source_url = target_source_url
+        self._target_arc_gis_url = target_arc_gis_url
+        self._target_tabs = target_tabs
 
     @classmethod
     @abstractmethod
