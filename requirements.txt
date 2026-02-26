@@ -2,3 +2,4 @@ requests
 beautifulsoup4
 xmltodict
 python-dateutil
+dafni-cli
