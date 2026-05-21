@@ -87,7 +87,14 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
         return {
             "name": "soda",
             "title": "Socrata Open Data API",
-            "description": "Harvests from a Socrata Open Data source",
+            "description": (
+                "Harvests from a Socrata Open Data API (SODA) source. "
+                "Required config keys:\n"
+                "  - app_token (str): Socrata application token for API authentication\n"
+                "Optional config keys:\n"
+                "  - remote_orgs ('create'): if set, creates organisations locally "
+                "from the dataset's attribution field"
+            ),
             "form_config_interface": "Text",
         }
 
