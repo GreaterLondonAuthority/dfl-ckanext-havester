@@ -104,7 +104,8 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
                 "  - organizations_filter_include (list): only harvest these orgs\n"
                 "  - organizations_filter_exclude (list): skip these orgs\n"
                 "  - groups_filter_include (list): only harvest these groups\n"
-                "  - groups_filter_exclude (list): skip these groups"
+                "  - groups_filter_exclude (list): skip these groups\n\n"
+                "Configuration parameters are not secure. Do not include sensitive information such as API keys or personal data in the configuration."
             ),
             "form_config_interface": "Text",
         }

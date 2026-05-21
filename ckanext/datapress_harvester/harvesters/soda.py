@@ -90,10 +90,12 @@ class SODAHarvester(HarvesterBase, DFLHarvesterMixin):
             "description": (
                 "Harvests from a Socrata Open Data API (SODA) source. "
                 "Required config keys:\n"
-                "  - app_token (str): Socrata application token for API authentication\n"
+                "  - app_token (str): Key for API authentication\n"
+                "Note: Soda API key is only used to increase rate limits and not for sensitive data.\n"
                 "Optional config keys:\n"
                 "  - remote_orgs ('create'): if set, creates organisations locally "
-                "from the dataset's attribution field"
+                "from the dataset's attribution field\n\n"
+                "Configuration parameters are not secure. Do not include sensitive information such as secret API keys or personal data in the configuration."
             ),
             "form_config_interface": "Text",
         }
