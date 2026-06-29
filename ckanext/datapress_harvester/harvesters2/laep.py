@@ -8,11 +8,9 @@ from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleS
 
 
 class LAEPCollect(Collector[dict[str, Any], dict[str, Any]]):
-    dcat_url = "https://laep-datahub-alpha-cityhall.hub.arcgis.com/api/feed/dcat-ap/3.0.0.json"
 
-    @classmethod
-    def gather(cls) -> list[dict[str, Any]]:
-        content = requests.get(cls.dcat_url).json()
+    def gather(self) -> list[dict[str, Any]]:
+        content = requests.get(self._target_source_url).json()
         return content["dcat:dataset"]
 
     @classmethod
@@ -23,8 +21,7 @@ class LAEPCollect(Collector[dict[str, Any], dict[str, Any]]):
     def fetch(cls, source_data: dict[str, Any]) -> dict[str, Any]:
         return source_data
 
-    @classmethod
-    def transform(cls, source_data: dict[str, Any], org_name: str) -> Iterable[SimpleStandard]:
+    def transform(self, source_data: dict[str, Any], org_name: str) -> Iterable[SimpleStandard]:
 
         # todo simpler dcat parsing method
 
@@ -49,9 +46,9 @@ class LAEPCollect(Collector[dict[str, Any], dict[str, Any]]):
             resources.append(resource)
 
         yield SimpleStandard(
-            package_id=SimpleStandard.create_hashed_id(cls.gather_identifier(source_data)),
+            package_id=SimpleStandard.create_hashed_id(self.gather_identifier(source_data)),
             org_name=org_name,
-            upstream_url=cls.dcat_url,
+            upstream_url=self._target_source_url,
             title=source_data["dct:title"],
             description=source_data["dct:description"],
 

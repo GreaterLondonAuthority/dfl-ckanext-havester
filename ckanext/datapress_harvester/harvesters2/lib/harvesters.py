@@ -40,7 +40,8 @@ class FingertipsHarvester(SimpleHarvester):
 
 class SimpleHarvester(HarvesterBase):
 
-    def _set_config(self, config_str) -> None:
+    def _set_config(self, config_str, source_url=None) -> None:
+        self._source_url = source_url
         # Handle empty config string
         if not config_str or not config_str.strip():
             self.config = {}
@@ -72,7 +73,7 @@ class SimpleHarvester(HarvesterBase):
         try:
             logging.info(f"Gathering {self.info()['name']}")
 
-            self._set_config(harvest_job.source.config)
+            self._set_config(harvest_job.source.config, source_url=harvest_job.source.url)
 
             gathered_items = self.collector().gather()
             all_jobs = []
@@ -104,7 +105,7 @@ class SimpleHarvester(HarvesterBase):
 
         logging.info(f"Fetching {self.info()['name']}")
 
-        self._set_config(harvest_object.source.config)
+        self._set_config(harvest_object.source.config, source_url=harvest_object.source.url)
 
         try:
 
@@ -125,6 +126,8 @@ class SimpleHarvester(HarvesterBase):
     def import_stage(self, harvest_object):
 
         logging.info(f"Importing {self.info()['name']}")
+
+        self._set_config(harvest_object.source.config, source_url=harvest_object.source.url)
 
         try:
 
@@ -224,9 +227,8 @@ class TflOpenHarvester(SimpleHarvester):
 
 class LAEPHarvester(SimpleHarvester):
 
-    @staticmethod
-    def collector() -> laep.LAEPCollect:
-        return laep.LAEPCollect()
+    def collector(self) -> laep.LAEPCollect:
+        return laep.LAEPCollect(target_source_url=self._source_url)
 
     @staticmethod
     def info() -> dict[str, str]:
@@ -239,8 +241,8 @@ class LAEPHarvester(SimpleHarvester):
 
 class InstantAtlasHarvester(SimpleHarvester):
 
-    def _set_config(self, config_str) -> None:
-        super()._set_config(config_str)
+    def _set_config(self, config_str, source_url=None) -> None:
+        super()._set_config(config_str, source_url=source_url)
         # InstantAtlas harvester requires mandatory parameters in config
         if not self.config.get('url_arc_gis') or not self.config.get('url_source') or not self.config.get('target_tabs'):
             raise ValueError(
