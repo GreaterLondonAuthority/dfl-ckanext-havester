@@ -87,7 +87,26 @@ class DataPressHarvester(HarvesterBase, DFLHarvesterMixin):
         return {
             "name": "datapress",
             "title": "DataPress",
-            "description": "Harvests remote DataPress instances",
+            "description": (
+                "Harvests remote DataPress instances. "
+                "Optional config keys:\n"
+                "  - datapress_api_key (str): API key for private datasets\n"
+                "  - harvest_private_datasets (bool): include private datasets\n"
+                "  - api_version (int): override API version\n"
+                "  - default_tags (list of dicts): tags added to all datasets\n"
+                "  - default_groups (list of str): group names/ids added to all datasets\n"
+                "  - default_extras (dict): extra fields added to all datasets\n"
+                "  - override_extras (bool): whether default_extras override existing extras\n"
+                "  - remote_groups ('only_local'|'create'): how to handle remote groups\n"
+                "  - remote_orgs ('only_local'|'create'): how to handle remote orgs\n"
+                "  - user (str): CKAN user to run the harvest as\n"
+                "  - read_only (bool): if true, no writes are made\n"
+                "  - organizations_filter_include (list): only harvest these orgs\n"
+                "  - organizations_filter_exclude (list): skip these orgs\n"
+                "  - groups_filter_include (list): only harvest these groups\n"
+                "  - groups_filter_exclude (list): skip these groups\n\n"
+                "Configuration parameters are not secure. Do not include sensitive information such as API keys or personal data in the configuration."
+            ),
             "form_config_interface": "Text",
         }
 

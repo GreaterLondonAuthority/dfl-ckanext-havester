@@ -110,7 +110,12 @@ class NomisLocalAuthorityProfileScraper(HarvesterBase, DFLHarvesterMixin):
         return {
             "name": "nomis-localauthprofile",
             "title": "Nomis Local Authority Profile",
-            "description": "Harvests local authority profiles from nomis",
+            "description": (
+                "Harvests local authority profiles from nomis.\n"
+                "The configuration must contain 'boroughs', which is a list of the boroughs to harvest.\n"
+                "If 'boroughs' is not included, all boroughs will be harvested.\n"
+                'Example config: {"boroughs": ["Brent", "Barnet"]}'
+            ),
             "form_config_interface": "Text",
         }
 
