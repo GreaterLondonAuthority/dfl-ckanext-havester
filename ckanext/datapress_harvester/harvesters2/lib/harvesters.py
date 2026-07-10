@@ -273,3 +273,104 @@ class CEDAHarvester(SimpleHarvester):
             "title": "Centre for Environmental Data Analysis",
             "description": "Harvests from the CEDA catalogue"
         }
+
+    def gather_stage(self, harvest_job):
+        try:
+            logging.info(f"Gathering {self.info()['name']}")
+
+            self._set_config(harvest_job.source.config)
+
+            # For CEDA, pass the configured URL from the harvest source
+            url = self.config.get('url_source') if self.config else None
+            ceda_collector = ceda.CEDA(target_source_url=url)
+            
+            gathered_items = ceda_collector.gather()
+            all_jobs = []
+
+            for item in gathered_items:
+                identifier = ceda_collector.gather_identifier(item)
+
+                # should hashing happen in the collector?
+                obj = HarvestObject(guid=SimpleStandard.create_hashed_id(identifier),
+                                    job=harvest_job,
+                                    content=json.dumps(item))
+                obj.save()
+
+                all_jobs.append(obj.id)
+
+            return all_jobs
+
+            # todo delete datasets that don't exist in gathered items
+
+        except Exception as e:
+            # todo set up proper exceptions
+            logging.error(f"Gather failed: {str(e)}")
+            self._save_gather_error(
+                f"Couldn't gather {self.info()['name']}", harvest_job)
+
+    def fetch_stage(self, harvest_object):
+
+        logging.info(f"Fetching {self.info()['name']}")
+
+        self._set_config(harvest_object.source.config)
+
+        try:
+            # For CEDA, pass the configured URL from the harvest source
+            url = self.config.get('url_source') if self.config else None
+            ceda_collector = ceda.CEDA(target_source_url=url)
+            
+            fetched_content = ceda_collector.fetch(json.loads(harvest_object.content))
+            harvest_object.content = json.dumps(fetched_content)
+
+        except Exception as e:
+            # todo set up proper exceptions
+            logging.error(f"Failed to fetch {harvest_object.guid}: {str(e)}")
+            self._save_object_error(
+                f"Couldn't fetch id {harvest_object.guid}, see logs for detail", harvest_object)
+
+            return False
+
+        return True
+
+    def import_stage(self, harvest_object):
+
+        logging.info(f"Importing {self.info()['name']}")
+
+        try:
+
+            # object.source.publisher_id is left empty so look it up from the api for no reason:|
+            base_context = {
+                "model": model,
+                "session": model.Session,
+                "user": self._get_user_name(),
+            }
+            harvest_source = toolkit.get_action("package_show")(
+                base_context.copy(), {"id": harvest_object.source.id}
+            )
+            harvester_org = harvest_source.get("owner_org")
+
+            # For CEDA, pass the configured URL from the harvest source
+            self._set_config(harvest_object.source.config)
+            url = self.config.get('url_source') if self.config else None
+            ceda_collector = ceda.CEDA(target_source_url=url)
+
+            for item in ceda_collector.transform(json.loads(harvest_object.content), org_name=harvester_org):
+                package_dict = item.as_dfl_package()
+
+                result = self._create_or_update_package(
+                    package_dict,
+                    harvest_object,
+                    package_dict_form="package_show"
+                )
+
+                logging.info(f"Saved {item.title}: {result}")
+
+            return True
+
+        except Exception as e:
+            # todo set up proper exceptions
+            logging.error(f"Failed to import {harvest_object.guid}: {str(e)}")
+            self._save_object_error(
+                f"Couldn't import id {harvest_object.guid}, see logs for detail", harvest_object)
+
+        return False
