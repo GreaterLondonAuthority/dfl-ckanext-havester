@@ -256,7 +256,21 @@ class InstantAtlasHarvester(SimpleHarvester):
         return {
             "name": "instant-atlas",
             "title": "Instant Atlas",
-            "description": "Harvests from the ESRI InstantAtlas portals"
+            "description": (
+                "Harvests from ESRI Instant Atlas based local council data portals. "
+                "Gathers metadata from two sources:\n"
+                "1. Theme pages on the portal website (scraped HTML)\n"
+                "2. Data Explorer via ArcGIS API\n\n"
+                "Required config parameters:\n"
+                "  - url_source (str): URL of the main portal page containing theme links\n"
+                "  - url_arc_gis (str): URL of the ArcGIS FeatureServer query endpoint\n"
+                "  - target_tabs (list of str): names of the top-level tabs to harvest from\n\n"
+                "Example config: "
+                '{\"url_source\": \"https://www.croydonobservatory.org/\", '
+                '\"url_arc_gis\": \"https://services1.arcgis.com/.../FeatureServer/0/query\", '
+                '\"target_tabs\": [\"Croydon Profile\", \"Census 2021\"]}\n\n'
+                "Configuration parameters are not secure. Do not include sensitive information such as API keys or personal data in the configuration."
+            )
         }
 
 class OpenCLIMHarvester(SimpleHarvester):

@@ -15,6 +15,7 @@ setup(
         laep_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:LAEPHarvester
         instantatlas_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:InstantAtlasHarvester
         openclim_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:DAFNI
+        ceda_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:CEDAHarvester
     """,
     # If you are changing from the default layout of your extension, you may
     # have to change the message extractors, you can read more about babel

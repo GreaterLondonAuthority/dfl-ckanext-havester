@@ -78,7 +78,11 @@ class RedbridgeHarvester(HarvesterBase, DFLHarvesterMixin):
         return {
             "name": "redbridge",
             "title": "Redbridge",
-            "description": "Harvests from Redbridge's DataShare API",
+            "description": (
+                    "Harvests from Redbridge's DataShare API. "
+                "Optional config keys:\n"
+                "  - remote_orgs ('create'): if set, creates remote organisations locally"
+            ),
             "form_config_interface": "Text",
         }
 
