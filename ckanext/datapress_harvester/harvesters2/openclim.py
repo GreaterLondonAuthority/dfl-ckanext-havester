@@ -1,7 +1,7 @@
 import requests
 from typing import Any, Iterable
 
-from lib.utils import Collector, SimpleStandard
+from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
 
 
 class DAFNI(Collector[dict[str, Any], dict[str, Any]]):
@@ -81,19 +81,3 @@ class DAFNI(Collector[dict[str, Any], dict[str, Any]]):
             private=False
         )
 
-c = DAFNI()
-g = c.gather()
-
-print("Items from gather:", g)
-
-for x in g:
-    print("Identifier:", c.gather_identifier(x))
-
-    f = c.fetch(x)
-    print("Fetched data:", f)
-
-    t = c.transform(f, "DAFNI")
-    print("Final datasets:", [dataset.__dict__ for dataset in t])
-
-    # only run first
-    break
