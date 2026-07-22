@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing import Any, Dict
 
 from ckanext.datapress_harvester.harvesters2.lib.utils import SimpleStandard, Collector
-from ckanext.datapress_harvester.harvesters2 import fingertips, tflunified, ukpn, tflopen, laep, instantatlas, ceda, openclim
+from ckanext.datapress_harvester.harvesters2 import fingertips, tflunified, ukpn, tflopen, laep, instantatlas, ceda
 
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
@@ -273,16 +273,17 @@ class InstantAtlasHarvester(SimpleHarvester):
             )
         }
 
-class OpenCLIMHarvester(SimpleHarvester):
+
+class CEDAHarvester(SimpleHarvester):
 
     @staticmethod
-    def collector() -> openclim.DAFNI:
-        return openclim.DAFNI()
+    def collector() -> ceda.CEDA:
+        return ceda.CEDA()
 
     @staticmethod
     def info() -> dict[str, str]:
         return {
-            "name": "openclim",
-            "title": "OpenCLIM",
-            "description": "Harvests OpenCLIM datasets from the DAFNI catalogue"
+            "name": "ceda",
+            "title": "Centre for Environmental Data Analysis",
+            "description": "Harvests from the CEDA catalogue"
         }
