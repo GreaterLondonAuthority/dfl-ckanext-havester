@@ -275,6 +275,10 @@ class InstantAtlasHarvester(SimpleHarvester):
 
 class OpenCLIMHarvester(SimpleHarvester):
 
+    def collector(self) -> openclim.DAFNI:
+        # return a collector instance passing the provided url from config
+        url = self.config.get('url_source') if self.config else None
+        return openclim.DAFNI(source_url=url)
     @staticmethod
     def collector() -> openclim.DAFNI:
         return openclim.DAFNI()
