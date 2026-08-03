@@ -1,5 +1,7 @@
 import requests
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable
+
+from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
 
 try:
     from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
@@ -83,21 +85,32 @@ class CEDA(Collector[dict[str, Any], dict[str, Any]]):
 
     def fetch(self, received: dict[str, Any] | str) -> dict[str, Any]:
         # fetch any extra metadata per item received in gather()
-        if isinstance(received, dict):
-            # Already have the full object from gather()
-            return received
-        else:
-            # It's a URL
-            r = requests.get(received)
-            r.raise_for_status()
-            return r.json()
+        r = requests.get(received)
+        # filter for relevance to london here if it can't be worked out beforehand
+        # pagination here too
+        return r.json() # will call transform() on this result
+    @classmethod
+    def transform(cls, received, org_name: str) -> Iterable[SimpleStandard]:
+        # make any adjustments to B received from fetch() and create standardised items
+        # any transformation that needs doing to get from the raw data received from fetch(), to get it
+        # into the format you want it to be in a dataset
+        # you don't have to produce 1:1, whatever list you produce will have a library dataset created for each
+        # SimpleStandard contained in it
+        # (e.g. if you ended up producing multiples you can return [SimpleStandard1, SimpleStandard2]
+        yield SimpleStandard(package_id=SimpleStandard.create_hashed_id(received["next"]),
+                             title="",
+                             description="",
+                             org_name=org_name)
 
-    def transform(self, received: dict[str, Any], org_name: str) -> Iterable[SimpleStandard]:
-        # make any adjustments to received data and create standardised items
-        # Extract relevant fields from the observation record
-        yield SimpleStandard(
-            package_id=SimpleStandard.create_hashed_id(self.gather_identifier(received)),
-            title=received.get("title", received.get("name", "")),
-            description=received.get("description", received.get("abstract", "")),
-            org_name=org_name
-        )
+c = CEDA()
+g = c.gather()
+print("Urls from gather:", g)
+for x in g:
+    print("Each url gathered will be identified by:", c.gather_identifier(x))
+    f = c.fetch(x)
+    print("Metadata that was fetched:", f)
+    t = c.transform(f, "CEDA")
+    print("Final datasets that will be created:", [dataset for dataset in t])
+    # only runs once on the first url, remove to run all
+    break
+ 
