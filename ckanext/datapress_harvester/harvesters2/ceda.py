@@ -1,8 +1,10 @@
 import requests
 from typing import Any, Iterable, Optional
 
-from lib.utils import Collector, SimpleStandard
-
+try:
+    from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
+except ImportError:  # pragma: no cover - fallback for direct script execution
+    from lib.utils import Collector, SimpleStandard
 
 # the types here are the types of the thing you produce in a list from gather(), and the type of what's returned from fetch()
 class CEDA(Collector[dict[str, Any], dict[str, Any]]):
@@ -27,22 +29,39 @@ class CEDA(Collector[dict[str, Any], dict[str, Any]]):
         self.source_url = source_url or "https://catalogue.ceda.ac.uk/api/v3/observations/"
 
     def gather(self) -> list[dict[str, Any]]:
-        # gather initial items from the configured URL
-        r = requests.get(self.source_url, timeout=10)
-        r.raise_for_status()
-        data = r.json()
-        
-        # Handle both direct list responses and paginated responses
-        if isinstance(data, list):
-            return data
-        elif isinstance(data, dict) and "results" in data:
-            return data["results"]
-        elif isinstance(data, dict) and "observations" in data:
-            return data["observations"]
-        else:
-            # If it's a dict of URLs (old behavior), collect them
-            list_of_urls = list(data.values())
-            return list_of_urls
+        items: list[dict[str, Any]] = []
+        next_url = self.source_url
+        seen_urls: set[str] = set()
+
+        while next_url:
+            if next_url in seen_urls:
+                break
+            seen_urls.add(next_url)
+
+            r = requests.get(next_url, timeout=10)
+            r.raise_for_status()
+            data = r.json()
+
+            if isinstance(data, list):
+                items.extend(data)
+                break
+
+            if isinstance(data, dict):
+                if "results" in data:
+                    items.extend(data.get("results", []))
+                elif "observations" in data:
+                    items.extend(data.get("observations", []))
+                else:
+                    return list(data.values())
+
+                next_url = data.get("next") or data.get("next_url") or data.get("nextPage") or data.get("next_page")
+                if not next_url:
+                    break
+                continue
+
+            break
+
+        return items
 
     def gather_identifier(self, received: dict[str, Any] | str) -> str:
         # how should a guid be created for each item in the list from gather()?
@@ -82,15 +101,3 @@ class CEDA(Collector[dict[str, Any], dict[str, Any]]):
             description=received.get("description", received.get("abstract", "")),
             org_name=org_name
         )
-
-c = CEDA()
-g = c.gather()
-print("Urls from gather:", g)
-for x in g:
-    print("Each url gathered will be identified by:", c.gather_identifier(x))
-    f = c.fetch(x)
-    print("Metadata that was fetched:", f)
-    t = c.transform(f, "CEDA")
-    print("Final datasets that will be created:", [dataset for dataset in t])
-    # only runs once on the first url, remove to run all
-    break
