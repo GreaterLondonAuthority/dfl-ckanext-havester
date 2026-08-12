@@ -4,7 +4,7 @@ from abc import abstractmethod
 from typing import Any, Dict
 
 from ckanext.datapress_harvester.harvesters2.lib.utils import SimpleStandard, Collector
-from ckanext.datapress_harvester.harvesters2 import fingertips, tflunified, ukpn, tflopen, laep, instantatlas, ceda, openclim
+from ckanext.datapress_harvester.harvesters2 import fingertips, tflunified, ukpn, tflopen, laep, instantatlas, ceda, openclim, gla_air_quality_dashboard
 
 from ckanext.harvest.harvesters import HarvesterBase
 from ckanext.harvest.model import HarvestObject, HarvestObjectExtra
@@ -289,4 +289,19 @@ class OpenCLIMHarvester(SimpleHarvester):
             "name": "openclim",
             "title": "OpenCLIM",
             "description": "Harvests OpenCLIM datasets from the DAFNI catalogue"
+        }
+
+
+class GlaAirQualityDashboardHarvester(SimpleHarvester):
+
+    @staticmethod
+    def collector() -> gla_air_quality_dashboard.GlaAirQualityDashboardCollect:
+        return gla_air_quality_dashboard.GlaAirQualityDashboardCollect()
+
+    @staticmethod
+    def info() -> dict[str, str]:
+        return {
+            "name": "gla-air-quality-dashboard",
+            "title": "GLA Air Quality Dashboard",
+            "description": "Harvests the GLA air quality dashboard catalogue"
         }
