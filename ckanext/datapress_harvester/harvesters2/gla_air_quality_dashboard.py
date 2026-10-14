@@ -1,11 +1,7 @@
 from typing import Any, Iterable
-
 import requests
 
-try:
-    from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
-except ImportError:  # pragma: no cover - fallback for direct script execution
-    from lib.utils import Collector, SimpleStandard
+from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
 
 
 class GlaAirQualityDashboardCollect(Collector[dict[str, Any], dict[str, Any]]):
