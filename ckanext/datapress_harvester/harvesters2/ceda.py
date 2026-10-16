@@ -1,12 +1,8 @@
 import requests
-from typing import Any, Iterable
+from typing import Any, Iterable, Optional
 
 from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
 
-try:
-    from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleStandard
-except ImportError:  # pragma: no cover - fallback for direct script execution
-    from lib.utils import Collector, SimpleStandard
 
 # the types here are the types of the thing you produce in a list from gather(), and the type of what's returned from fetch()
 class CEDA(Collector[dict[str, Any], dict[str, Any]]):

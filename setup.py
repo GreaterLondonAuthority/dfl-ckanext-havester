@@ -14,7 +14,7 @@ setup(
         tflopen_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:TflOpenHarvester
         laep_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:LAEPHarvester
         instantatlas_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:InstantAtlasHarvester
-        openclim_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:DAFNI
+        openclim_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:OpenCLIMHarvester
         ceda_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:CEDAHarvester
         gla_air_quality_dashboard_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:GlaAirQualityDashboardHarvester
     """,

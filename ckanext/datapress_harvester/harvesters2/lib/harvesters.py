@@ -274,6 +274,22 @@ class InstantAtlasHarvester(SimpleHarvester):
             )
         }
 
+
+class CEDAHarvester(SimpleHarvester):
+
+    @staticmethod
+    def collector() -> ceda.CEDA:
+        return ceda.CEDA()
+
+    @staticmethod
+    def info() -> dict[str, str]:
+        return {
+            "name": "ceda",
+            "title": "Centre for Environmental Data Analysis",
+            "description": "Harvests from the CEDA catalogue"
+        }
+
+
 class OpenCLIMHarvester(SimpleHarvester):
 
     def collector(self) -> openclim.DAFNI:
