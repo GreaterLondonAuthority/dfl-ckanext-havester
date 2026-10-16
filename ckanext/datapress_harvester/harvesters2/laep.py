@@ -8,7 +8,7 @@ from ckanext.datapress_harvester.harvesters2.lib.utils import Collector, SimpleS
 
 
 class LAEPCollect(Collector[dict[str, Any], dict[str, Any]]):
-    dcat_url = "https://laep-datahub-alpha-cityhall.hub.arcgis.com/api/feed/dcat-ap/3.0.0.json"
+    dcat_url = "https://laep-datahub-cityhall.hub.arcgis.com/api/feed/dcat-ap/3.0.0.json"
 
     @classmethod
     def gather(cls) -> list[dict[str, Any]]:
