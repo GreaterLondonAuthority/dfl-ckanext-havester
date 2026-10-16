@@ -97,16 +97,3 @@ class CEDA(Collector[dict[str, Any], dict[str, Any]]):
                              title="",
                              description="",
                              org_name=org_name)
-
-c = CEDA()
-g = c.gather()
-print("Urls from gather:", g)
-for x in g:
-    print("Each url gathered will be identified by:", c.gather_identifier(x))
-    f = c.fetch(x)
-    print("Metadata that was fetched:", f)
-    t = c.transform(f, "CEDA")
-    print("Final datasets that will be created:", [dataset for dataset in t])
-    # only runs once on the first url, remove to run all
-    break
- 
