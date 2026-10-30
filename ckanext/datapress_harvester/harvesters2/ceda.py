@@ -61,7 +61,8 @@ class CEDA(Collector[dict[str, Any], dict[str, Any]]):
 
         return items
 
-    def gather_identifier(self, received: dict[str, Any] | str) -> str:
+    @classmethod
+    def gather_identifier(cls, received: dict[str, Any] | str) -> str:
         # how should a guid be created for each item in the list from gather()?
         # doesn't have to be this way, it just needs to be unique
         if isinstance(received, dict):
