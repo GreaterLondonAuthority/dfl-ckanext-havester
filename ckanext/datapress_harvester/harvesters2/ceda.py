@@ -61,7 +61,8 @@ class CEDA(Collector[dict[str, Any], dict[str, Any]]):
 
         return items
 
-    def gather_identifier(self, received: dict[str, Any] | str) -> str:
+    @classmethod
+    def gather_identifier(cls, received: dict[str, Any] | str) -> str:
         # how should a guid be created for each item in the list from gather()?
         # doesn't have to be this way, it just needs to be unique
         if isinstance(received, dict):
@@ -81,10 +82,15 @@ class CEDA(Collector[dict[str, Any], dict[str, Any]]):
 
     def fetch(self, received: dict[str, Any] | str) -> dict[str, Any]:
         # fetch any extra metadata per item received in gather()
-        r = requests.get(received)
-        # filter for relevance to london here if it can't be worked out beforehand
-        # pagination here too
-        return r.json() # will call transform() on this result
+        if isinstance(received, dict):
+            # Already have the full object from gather()
+            return received
+        else:
+            # It's a URL
+            r = requests.get(received)
+            r.raise_for_status()
+            return r.json()
+            
     @classmethod
     def transform(cls, received, org_name: str) -> Iterable[SimpleStandard]:
         # make any adjustments to B received from fetch() and create standardised items
@@ -93,7 +99,10 @@ class CEDA(Collector[dict[str, Any], dict[str, Any]]):
         # you don't have to produce 1:1, whatever list you produce will have a library dataset created for each
         # SimpleStandard contained in it
         # (e.g. if you ended up producing multiples you can return [SimpleStandard1, SimpleStandard2]
-        yield SimpleStandard(package_id=SimpleStandard.create_hashed_id(received["next"]),
-                             title="",
-                             description="",
-                             org_name=org_name)
+                # Extract relevant fields from the observation record
+        yield SimpleStandard(
+            package_id=SimpleStandard.create_hashed_id(cls.gather_identifier(received)),
+            title=received.get("title", received.get("name", "")),
+            description=received.get("description", received.get("abstract", "")),
+            org_name=org_name
+        )
