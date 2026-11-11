@@ -17,6 +17,7 @@ setup(
         openclim_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:OpenCLIMHarvester
         ceda_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:CEDAHarvester
         gla_air_quality_dashboard_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:GlaAirQualityDashboardHarvester
+        gigl_harvester=ckanext.datapress_harvester.harvesters2.lib.harvesters:GiGLHarvester
     """,
     # If you are changing from the default layout of your extension, you may
     # have to change the message extractors, you can read more about babel
